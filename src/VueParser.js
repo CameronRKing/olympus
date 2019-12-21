@@ -34,6 +34,10 @@ module.exports = class VueParser {
         });
     }
 
+    ready() {
+        return this.isDone;
+    }
+
     option(name) {
         let node = findOption(this.script, name);
         if (!node.length) {
@@ -47,12 +51,27 @@ module.exports = class VueParser {
 
     importComponent(path) {
         const cmpName = path.split('/').slice(-1)[0].split('.')[0];
+        const aliasedPath = path.replace('src', '@');
 
-        addToTop(this.script, parse(`import ${cmpName} from '${path}';`));
+        addToTop(this.script, parse(`import ${cmpName} from '${aliasedPath}';`));
 
         const components = this.option('components');
         const cmpProp = objProp(cmpName, j.identifier(cmpName), { shorthand: true });
         components.get().value.value.properties.push(cmpProp);
+    }
+
+    deportComponent(name) {
+        this.script.find(j.ImportDefaultSpecifier, { local: { name } })
+            .closest(j.ImportDeclaration)
+            .remove();
+
+        this.option('components')
+            .find(j.Property, { key: { name } })
+            .remove();
+        
+        if (this.option('components').get().value.value.properties.length == 0) {
+            this.option('components').remove();
+        }
     }
 
     toString() {
