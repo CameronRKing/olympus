@@ -133,6 +133,27 @@ module.exports = class VueParser {
         }
     }
 
+    addData(name, val) {
+        const data = this.option('data');
+        data.find(j.ReturnStatement)
+            .find(j.ObjectExpression)
+            .get().value.properties.push(objProp(name, parse(val).expression));
+    }
+
+    setData(name, newVal) {
+        const data = this.option('data');
+        data.find(j.Property, { key: { name } })
+            .get().get('value').replace(parse(newVal).expression);
+    }
+
+    removeData(name) {
+        const data = this.option('data');
+        data.find(j.Property, { key: { name } }).remove();
+        if (data.find(j.ReturnStatement).get().value.argument.properties.length == 0) {
+            data.remove();
+        }
+    }
+
     toString() {
         this.tree.match({ tag: 'script' }, node => {
             node.content = [toSource(this.script)];

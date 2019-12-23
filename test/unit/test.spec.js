@@ -87,95 +87,66 @@ export default {
 </script>`);
         });
 
-        it('    renames it everywhere', () => {
+        // todo
+        it.skip('    and renames it everywhere', () => {
             asts.addProp('foo');
             asts.renameProp('foo', 'bar');
             // in the props declarations
             expect(asts.toString()).to.match(`<script>
 export default {
-    props: {
-        bar: {
-            required: true,
-            validator: (val) => val == 'secret-key'
-        }
-    }
-}`)
+    props: ['bar']
+};
+</script>`)
             // in the template
             // in the rest of the script
             // in components that bind to it directly
             // in tests that touch it
         });
 
-        it('    and deletes it all', () => {
-            // cut validatory, type, default
-            asts.updateProp('bar', { smite: ['default', 'validator'] });
-            // or maybe asts.updateProp('bar').smite('default', 'validator')?
-            expect(asts.toString()).to.match(`<script>
-export default {
-    props: {
-        foo: {
-            required: true,
-            type: String
-        }
-    }
-}`)
-            // show how props returns to array form
-            asts.updateProp('bar').smiteAll()
-            expect(asts.toString()).to.match(`<script>
-export default {
-    props: ['bar']
-}
-</script>`)
-            // show how components that bind to it no longer do
-            // show list of uses in tests (for you to deal with: replace reference || delete statement)
-            // remove last prop
-            // show how it reverts to inline component form
-        });
-
-        it('...that adds, renames, sets, and removes data', () => {
-            // what it says on the box
-            asts.addData('foo', 'bar');
-            expect(asts.toString()).to.match(`<script>
+        it('...that adds new data', () => {
+            asts.addData('foo', `'bar'`);
+            expect(asts.toString()).to.equal(`<script>
 export default {
     data() {
         return {
             foo: 'bar'
         };
     }
-}
+};
 </script>`);
+        });
 
-            asts.renameData('foo', 'bar');
-            expect(asts.toString()).to.match(`<script>
-export default {
-    data() {
-        return {
-            bar: 'bar',
-        };
-    }
-}
-</script>`)
-
-            asts.setData('bar', 'new-value');
-            expect(asts.toString()).to.match(`<script>
+        it('   and sets it to new values', () => {
+            asts.addData('bar', `'initial-value'`);
+            asts.setData('bar', `'new-value'`);
+            expect(asts.toString()).to.equal(`<script>
 export default {
     data() {
         return {
             bar: 'new-value'
         };
     }
-}
+};
 </script>`)
-
-            asts.smiteData('bar');
-            expect(asts.toString()).to.match(`<script>export default {}</script>`);
         });
 
-        it('...that adds, renames, and deletes watchers', () => {
+        it('   and removes it', () => {
+            asts.addData('bar', `'value'`);
+            asts.removeData('bar');
+            expect(asts.toString()).to.equal(`<script>
+export default {}
+</script>`);
+        });
+
+        it('...that adds watchers', () => {
 
         });
 
         it('    and configures their deep/immediate attributes', () => {
+
+        });
+
+        it('   and removes them', () => {
 
         });
 
