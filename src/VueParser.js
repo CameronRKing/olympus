@@ -1,8 +1,9 @@
 const j = require('jscodeshift');
 const posthtml = require('posthtml');
 const { render } = require('./htmlrender');
-const { toSource, getDefaultExport, objProp, addToTop, parse } = require('./node-utils');
+const { toSource, getDefaultExport, objProp, addToTop, parse, object } = require('./node-utils');
 const { findOption, makeOptionProp } = require('./vue-utils');
+const { mapWithKeys, pairs } = require('./utils');
 
 module.exports = class VueParser {
     constructor(text) {
@@ -71,6 +72,64 @@ module.exports = class VueParser {
         
         if (this.option('components').get().value.value.properties.length == 0) {
             this.option('components').remove();
+        }
+    }
+
+    addProp(name) {
+        const props = this.option('props').get().value;
+
+        if (props.value.type == 'ArrayExpression') {
+            props.value.elements.push(j.literal(name));
+        } else {
+            props.value.value.properties.push(objProp(name, object()));
+        }
+    }
+
+    removeProp(name) {
+        const props = this.option('props');
+        
+        if (props.get().value.value.type == 'ArrayExpression') {
+            props.find(j.Literal, { value: name }).remove();
+            if (props.get().value.value.elements.length == 0) {
+                props.remove();
+            }
+        } else {
+            props.find(j.Property, { key: { name } }).remove();
+            if (props.get().value.value.properties.length == 0) {
+                props.remove();
+            }
+        }
+    }
+
+    updateProp(name, attrs) {
+        const props = this.option('props');
+        // convert from array to object if necessary
+        if (props.get().value.value.type == 'ArrayExpression') {
+            const propNames = props.get().value.value.elements
+                .map(el => el.value);
+            const propsObj = mapWithKeys(propNames, name => [name, {}]);
+            props.get().get('value').replace(object(propsObj));
+        }
+
+        const prop = props.find(j.Property, { key: { name } });
+        pairs(attrs).forEach(([propAttr, val]) => {
+            // remove attribute if null
+            if (val == null) {
+                prop.find(j.Property, { key: { name: propAttr }}).remove();
+            } else {
+                let nodeVal = parse(val);
+                // the parsed node needs to be unpacked if it's a boolean or a type
+                if (nodeVal.type == 'ExpressionStatement') nodeVal = nodeVal.expression;
+                prop.get().value.value.properties.push(objProp(propAttr, nodeVal));
+            }
+        });
+
+        const propsList = props.find(j.Property);
+        const emptyProps = propsList.filter(propPath => propPath.value.value.type == 'ObjectExpression' && propPath.value.value.properties.length == 0);
+        // convert back to array syntax if we don't have any object properties
+        if (propsList.length == emptyProps.length) {
+            const newProps = propsList.paths().map(propPath => j.literal(propPath.value.key.name));
+            props.get().get('value').replace(j.arrayExpression(newProps));
         }
     }
 

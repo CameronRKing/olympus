@@ -27,7 +27,7 @@ export default {
 </script>`);
         });
 
-        it.only('   and deports old ones', () => {
+        it('   and deports old ones', () => {
             asts.importComponent('src/components/FooCmp.vue');
             asts.deportComponent('FooCmp');
             expect(asts.toString()).to.equal(`<script>
@@ -37,16 +37,30 @@ export default {}
 
         it('...that adds new props', () => {
             asts.addProp('foo');
-            expect(asts.toString()).to.match(`<script>
+            expect(asts.toString()).to.equal(`<script>
 export default {
     props: ['foo']
-}
-</script>`)
+};
+</script>`);
         });
 
+        it('   and removes them', () => {
+            asts.addProp('foo');
+            asts.removeProp('foo');
+            expect(asts.toString()).to.equal(`<script>
+export default {}
+</script>`);
+        })
+
         it('   and updates their required, default, type, and validator attributes', () => {
-            asts.updateProp('foo', { required: true, default: 'irrelevant', type: String, validator: (val) => val == 'secret-key' });
-            expect(asts.toString()).to.match(`<script>
+            asts.addProp('foo');
+            asts.updateProp('foo', {
+                required: 'true',
+                default: `'irrelevant'`,
+                type: 'String',
+                validator: `(val) => val == 'secret-key'`
+            });
+            expect(asts.toString()).to.equal(`<script>
 export default {
     props: {
         foo: {
@@ -56,15 +70,27 @@ export default {
             validator: (val) => val == 'secret-key'
         }
     }
-}
-`);
-            // this also would have worked
-            // asts.updateProp('foo', { required: 'true', type: 'String', validator: `(val) => val == 'secret-key'`})
+};
+</script>`);
+            // set the attribute to null to remove it
+            asts.updateProp('foo', {
+                required: null,
+                default: null,
+                type: null,
+                validator: null
+            });
+
+            expect(asts.toString()).to.equal(`<script>
+export default {
+    props: ['foo']
+};
+</script>`);
         });
 
         it('    renames it everywhere', () => {
-            // in the props declarations
+            asts.addProp('foo');
             asts.renameProp('foo', 'bar');
+            // in the props declarations
             expect(asts.toString()).to.match(`<script>
 export default {
     props: {
@@ -76,7 +102,7 @@ export default {
 }`)
             // in the template
             // in the rest of the script
-            // in (most) components that bind to it
+            // in components that bind to it directly
             // in tests that touch it
         });
 

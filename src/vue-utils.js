@@ -9,6 +9,9 @@ exports.findOption = findOption;
 
 function makeOptionProp(name) {
     switch (name) {
+        case 'props':
+            return objProp(name, j.arrayExpression([]));
+        case 'components':
         default:
             return objProp(name, object());
     }
