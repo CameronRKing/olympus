@@ -194,6 +194,12 @@ module.exports = class VueParser {
         }
     }
 
+    removeWatcher(name) {
+        const watch = this.option('watch');
+        watch.find(j.Property, { key: { name } }).remove();
+        if (watch.find(j.Property).length == 0) watch.remove();
+    }
+
     toString() {
         this.tree.match({ tag: 'script' }, node => {
             node.content = [toSource(this.script)];
