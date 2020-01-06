@@ -1,21 +1,21 @@
 const { expect } = require('chai');
 const VueParser = require('../../src/VueParser.js');
-describe('Vue Parser', () => {
-    describe.only('accepts a string and returns a collection of named ASTs', () => {
-        let asts;
-        const inlineCmp = () => new VueParser(`<script>
+describe('Vue Parser, which accepts a string and returns a collection of named ASTs', () => {
+    let asts;
+    const inlineCmp = () => new VueParser(`<script>
 export default {}
 </script>`);
-        const getCmp = async () => {
-            const parser = inlineCmp();
-            await parser.ready();
-            return parser;
-        };
-        beforeEach(async () => {
-            asts = await getCmp();
-        });
+    const getCmp = async () => {
+        const parser = inlineCmp();
+        await parser.ready();
+        return parser;
+    };
+    beforeEach(async () => {
+        asts = await getCmp();
+    });
 
-        it('...that imports new components', () => {
+    describe('components', () => {
+        it('imports', () => {
             asts.importComponent('src/components/FooCmp.vue');
             expect(asts.toString()).to.equal(`<script>
 import FooCmp from '@/components/FooCmp.vue';
@@ -25,17 +25,19 @@ export default {
     }
 };
 </script>`);
-        });
+    });
 
-        it('   and deports old ones', () => {
+        it('deports', () => {
             asts.importComponent('src/components/FooCmp.vue');
             asts.deportComponent('FooCmp');
             expect(asts.toString()).to.equal(`<script>
 export default {}
 </script>`)
         });
+    });
 
-        it('...that adds new props', () => {
+    describe('props', () => {
+        it('adds props', () => {
             asts.addProp('foo');
             expect(asts.toString()).to.equal(`<script>
 export default {
@@ -44,15 +46,7 @@ export default {
 </script>`);
         });
 
-        it('   and removes them', () => {
-            asts.addProp('foo');
-            asts.removeProp('foo');
-            expect(asts.toString()).to.equal(`<script>
-export default {}
-</script>`);
-        })
-
-        it('   and updates their required, default, type, and validator attributes', () => {
+        it('updates required/default/type/validator', () => {
             asts.addProp('foo');
             asts.updateProp('foo', {
                 required: 'true',
@@ -87,8 +81,15 @@ export default {
 </script>`);
         });
 
-        // todo
-        it.skip('    and renames it everywhere', () => {
+        it('removes props', () => {
+            asts.addProp('foo');
+            asts.removeProp('foo');
+            expect(asts.toString()).to.equal(`<script>
+export default {}
+</script>`);
+        });
+
+        it.skip('renames props', () => {
             asts.addProp('foo');
             asts.renameProp('foo', 'bar');
             // in the props declarations
@@ -96,14 +97,16 @@ export default {
 export default {
     props: ['bar']
 };
-</script>`)
+</script>`);
             // in the template
             // in the rest of the script
             // in components that bind to it directly
             // in tests that touch it
         });
+    });
 
-        it('...that adds new data', () => {
+    describe('data', () => {
+        it('adds data', () => {
             asts.addData('foo', `'bar'`);
             expect(asts.toString()).to.equal(`<script>
 export default {
@@ -116,7 +119,7 @@ export default {
 </script>`);
         });
 
-        it('   and sets it to new values', () => {
+        it('sets data', () => {
             asts.addData('bar', `'initial-value'`);
             asts.setData('bar', `'new-value'`);
             expect(asts.toString()).to.equal(`<script>
@@ -130,15 +133,17 @@ export default {
 </script>`)
         });
 
-        it('   and removes it', () => {
+        it('removes data', () => {
             asts.addData('bar', `'value'`);
             asts.removeData('bar');
             expect(asts.toString()).to.equal(`<script>
 export default {}
 </script>`);
         });
+    });
 
-        it('...that adds watchers', () => {
+    describe('watchers', () => {
+        it('adds watchers', () => {
             asts.addWatcher('foo');
             expect(asts.toString()).to.equal(`<script>
 export default {
@@ -149,7 +154,7 @@ export default {
 </script>`)
         });
 
-        it('    and configures their deep/immediate attributes', () => {
+        it('configures deep/immediate', () => {
             asts.addWatcher('foo');
             asts.updateWatcher('foo', { deep: true, immediate: true });
             expect(asts.toString()).to.equal(`<script>
@@ -174,7 +179,7 @@ export default {
 </script>`);
         });
 
-        it('   and removes watchers', () => {
+        it('removes watchers', () => {
             asts.addWatcher('foo');
             asts.removeWatcher('foo');
             expect(asts.toString()).to.equal(`<script>
@@ -188,23 +193,24 @@ export default {}
 export default {}
 </script>`);
         });
+    });
 
-        describe('computed properties', () => {
-            it('adds', () => {
-                asts.addComputed('foo');
-                expect(asts.toString()).to.equal(`<script>
+    describe('computed properties', () => {
+        it('adds computed', () => {
+            asts.addComputed('foo');
+            expect(asts.toString()).to.equal(`<script>
 export default {
     computed: {
         foo() {}
     }
 };
 </script>`);
-            });
+        });
 
-            it('updates setter', () => {
-                asts.addComputed('foo');
-                asts.addComputedSetter('foo');
-                expect(asts.toString()).to.equal(`<script>
+        it('updates setter', () => {
+            asts.addComputed('foo');
+            asts.addComputedSetter('foo');
+            expect(asts.toString()).to.equal(`<script>
 export default {
     computed: {
         foo: {
@@ -217,77 +223,87 @@ export default {
 };
 </script>`);
 
-                asts.removeComputedSetter('foo');
-                expect(asts.toString()).to.equal(`<script>
+            asts.removeComputedSetter('foo');
+            expect(asts.toString()).to.equal(`<script>
 export default {
     computed: {
         foo() {}
     }
 };
 </script>`);
-            });
-
-            it('removes', () => {
-
-            });
         });
 
-        describe('methods', () => {
-            it('adds', () => {
-                
-            });
+        it('removes computed', () => {
+            asts.addComputed('foo');
+            asts.removeComputed('foo');
+            expect(asts.toString()).to.equal(`<script>
+export default {}
+</script>`);
 
-            it('removes', () => {
+            asts.addComputed('bar');
+            asts.addComputedSetter('bar');
+            asts.removeComputed('bar');
+            expect(asts.toString()).to.equal(`<script>
+export default {}
+</script>`);
+        });
+    });
 
-            });
+    describe('methods', () => {
+        it('adds methods', () => {
+            
         });
 
-        it('but most importantly, it can refactor itself to produce two new components', () => {
-            // show a real-life example, detailing how it extricates logic
-        });
-
-        // MOVE TO DIFFERENT MODULE THAT VUE PARSER HAPPENS TO USE
-        it(' (it also gives you a jQuery-like API for manipulating the DOM in the template', () => {
+        it('removes methods', () => {
 
         });
+    });
 
-        // MOVE TO DIFFERENT MODULE THAT VUE PARSER HAPPENS TO USE
-        it('  (as well as a similar DSL for dealing with the JS abstract syntax tree)', () => {
+    it('but most importantly, it can refactor itself to produce two new components', () => {
+        // show a real-life example, detailing how it extricates logic
+    });
 
-        });
+    // MOVE TO DIFFERENT MODULE THAT VUE PARSER HAPPENS TO USE
+    it(' (it also gives you a jQuery-like API for manipulating the DOM in the template', () => {
 
-        // MOVE TO A DIFFERENT MODULE THAT VUE PARSER HAPPENS TO USE
-        it('  (and yet another for postcss)', () => {
+    });
 
-        });
+    // MOVE TO DIFFERENT MODULE THAT VUE PARSER HAPPENS TO USE
+    it('  (as well as a similar DSL for dealing with the JS abstract syntax tree)', () => {
+
+    });
+
+    // MOVE TO A DIFFERENT MODULE THAT VUE PARSER HAPPENS TO USE
+    it('  (and yet another for postcss)', () => {
+
     });
 });
 
 // router parser
-    // bootstrap
-    // add route
-    // rename route
-    // change component
-    // manipulate all those properties of routes that I never use
+// bootstrap
+// add route
+// rename route
+// change component
+// manipulate all those properties of routes that I never use
 
 // store parser
-    // bootstrap
-    // add item
-    // add mutator
-    // add action
-    // rename/delete/move to module for all of these
+// bootstrap
+// add item
+// add mutator
+// add action
+// rename/delete/move to module for all of these
 
 // store/component integration:
-    // see uses of store
-    // offer "add to store" from within component
-    // push data from component internals to store
-    // inline data from store to component internals 
+// see uses of store
+// offer "add to store" from within component
+// push data from component internals to store
+// inline data from store to component internals 
 
 // route/component integration:
-    // see what routes this compoent is used in/directly attached to
-    // add to new route
-    // edit route(s) of current component
-    
+// see what routes this compoent is used in/directly attached to
+// add to new route
+// edit route(s) of current component
+
 
 // tailwind class editor
 // tailwind style pane
@@ -298,12 +314,12 @@ export default {
 // unit test integration
 
 // routes tree: generates component AST of all routes for visualizing, searching, and overlaying with live data
-    // it's easier to see the real structure of the app, and ask where things are used
+// it's easier to see the real structure of the app, and ask where things are used
 
 // developer story: organize files and runtimes via a timeline that lays on top of an image of your app
-    // visualize layers of architecture, files in a layer, connections among files
-    // e.g., an input-to-output story showing acceptance/unit tests tied to source code && the execution path through the architecture
-    // e.g., a site map
+// visualize layers of architecture, files in a layer, connections among files
+// e.g., an input-to-output story showing acceptance/unit tests tied to source code && the execution path through the architecture
+// e.g., a site map
 
 // component REPL: link directly to live representations, in a browser or in nodejs
-    // i.e., expose "this" of a component on command for manipulation from the (terminal? editor?)
+// i.e., expose "this" of a component on command for manipulation from the (terminal? editor?)
