@@ -154,6 +154,46 @@ module.exports = class VueParser {
         }
     }
 
+    addWatcher(name) {
+        const watchers = this.option('watch');
+        const watcher = objProp(name, j.functionExpression(null,
+            [j.identifier('newVal'), j.identifier('oldVal')],
+            j.blockStatement([])
+        ), { method: true });
+        watchers.get().value.value.properties.push(watcher);
+    }
+
+    updateWatcher(name, attrs) {
+        const watchers = this.option('watch');
+        const watcher = watchers.find(j.Property, { key: { name } });
+        const watcherNode = watcher.get().value;
+
+        // convert to object syntax if necessary
+        if (watcherNode.value.type == 'FunctionExpression') {
+            const handlerProp = objProp('handler', watcherNode.value, { method: true });
+            watcherNode.value = j.objectExpression([handlerProp]);
+            watcherNode.method = false;
+        }
+
+        // update deep/immediate attributes
+        pairs(attrs).forEach(([attr, val]) => {
+            if (val === null) {
+                watcher.find(j.Property, { key: { name: attr } }).remove();
+            } else {
+                // if it already exists, do nothing
+                if (watcher.find(j.Property, { key: { name: attr } }).length) return;
+
+                watcherNode.value.properties.push(objProp(attr, val));
+            }
+        });
+
+        // convert back to function syntax if deep/immediate not present
+        if (watcherNode.value.properties.length == 1) {
+            watcherNode.value = watcher.find(j.Property, { key: { name: 'handler' } }).get().value.value;
+            watcherNode.method = true;
+        }
+    }
+
     toString() {
         this.tree.match({ tag: 'script' }, node => {
             node.content = [toSource(this.script)];

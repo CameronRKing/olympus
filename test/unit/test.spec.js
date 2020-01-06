@@ -139,15 +139,54 @@ export default {}
         });
 
         it('...that adds watchers', () => {
-
+            asts.addWatcher('foo');
+            expect(asts.toString()).to.equal(`<script>
+export default {
+    watch: {
+        foo(newVal, oldVal) {}
+    }
+};
+</script>`)
         });
 
         it('    and configures their deep/immediate attributes', () => {
+            asts.addWatcher('foo');
+            asts.updateWatcher('foo', { deep: true, immediate: true });
+            expect(asts.toString()).to.equal(`<script>
+export default {
+    watch: {
+        foo: {
+            handler(newVal, oldVal) {},
+            deep: true,
+            immediate: true
+        }
+    }
+};
+</script>`);
 
+            asts.updateWatcher('foo', { deep: null, immediate: null });
+            expect(asts.toString()).to.equal(`<script>
+export default {
+    watch: {
+        foo(newVal, oldVal) {}
+    }
+};
+</script>`);
         });
 
-        it('   and removes them', () => {
+        it('   and removes watchers', () => {
+            asts.addWatcher('foo');
+            asts.removeWatcher('foo');
+            expect(asts.toString()).to.equal(`<script>
+export default {}
+</script>`);
 
+            asts.addWatcher('bar');
+            asts.updateWatcher('bar', { deep: true, immediate: true });
+            asts.removeWatcher('bar');
+            expect(asts.toString()).to.equal(`<script>
+export default {}
+</script>`);
         });
 
         it('....that adds, renames, and deletes computed properties', () => {
