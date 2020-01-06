@@ -200,6 +200,47 @@ module.exports = class VueParser {
         if (watch.find(j.Property).length == 0) watch.remove();
     }
 
+    addComputed(name) {
+        const emptyFunc = j.functionExpression(null, [], j.blockStatement([]));
+        const prop = objProp(name, emptyFunc, { method: true });
+
+        this.option('computed')
+            .get().value
+            .value.properties.push(prop);
+    }
+
+    addComputedSetter(name) {
+        const node = this.option('computed')
+            .find(j.Property, { key: { name } })
+            .get().value;
+
+        const getter = objProp('get', node.value, { method: true });
+        const setter = objProp('set', j.functionExpression(null,
+            [j.identifier('newValue')],
+            j.blockStatement([parse(`this.${name} = newValue;`)])),
+            { method: true });
+        node.value = j.objectExpression([getter, setter]);
+        node.method = false;
+    }
+
+    removeComputedSetter(name) {
+        const prop = this.option('computed')
+            .find(j.Property, { key: { name } });
+        
+        const getter = prop.find(j.Property, { key: { name: 'get' } })
+            .get().value;
+        
+        const node = prop.get().value;
+        node.value = getter.value;
+        node.method = true;
+    }
+
+    removeComputed(name) {
+        const computed = this.option('computed');
+        computed.find(j.Property, { key: { name } }).remove();
+        if (computed.find(j.Property).length == 0) computed.remove();
+    }
+
     toString() {
         this.tree.match({ tag: 'script' }, node => {
             node.content = [toSource(this.script)];

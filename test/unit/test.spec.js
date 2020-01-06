@@ -189,12 +189,57 @@ export default {}
 </script>`);
         });
 
-        it('....that adds, renames, and deletes computed properties', () => {
+        describe('computed properties', () => {
+            it('adds', () => {
+                asts.addComputed('foo');
+                expect(asts.toString()).to.equal(`<script>
+export default {
+    computed: {
+        foo() {}
+    }
+};
+</script>`);
+            });
 
+            it('updates setter', () => {
+                asts.addComputed('foo');
+                asts.addComputedSetter('foo');
+                expect(asts.toString()).to.equal(`<script>
+export default {
+    computed: {
+        foo: {
+            get() {},
+            set(newValue) {
+                this.foo = newValue;
+            }
+        }
+    }
+};
+</script>`);
+
+                asts.removeComputedSetter('foo');
+                expect(asts.toString()).to.equal(`<script>
+export default {
+    computed: {
+        foo() {}
+    }
+};
+</script>`);
+            });
+
+            it('removes', () => {
+
+            });
         });
 
-        it('...and all that stuff for methods, too', () => {
+        describe('methods', () => {
+            it('adds', () => {
+                
+            });
 
+            it('removes', () => {
+
+            });
         });
 
         it('but most importantly, it can refactor itself to produce two new components', () => {
