@@ -5,6 +5,10 @@ const { toSource, getDefaultExport, objProp, addToTop, parse, object } = require
 const { findOption, makeOptionProp } = require('./vue-utils');
 const { mapWithKeys, pairs } = require('./utils');
 
+function emptyFunc() {
+    return j.functionExpression(null, [], j.blockStatement([]));
+}
+
 module.exports = class VueParser {
     constructor(text) {
         this.isDone = new Promise(resolve => {
@@ -201,12 +205,10 @@ module.exports = class VueParser {
     }
 
     addComputed(name) {
-        const emptyFunc = j.functionExpression(null, [], j.blockStatement([]));
-        const prop = objProp(name, emptyFunc, { method: true });
-
         this.option('computed')
             .get().value
-            .value.properties.push(prop);
+            .value.properties
+            .push(objProp(name, emptyFunc(), { method: true }));
     }
 
     addComputedSetter(name) {
@@ -239,6 +241,19 @@ module.exports = class VueParser {
         const computed = this.option('computed');
         computed.find(j.Property, { key: { name } }).remove();
         if (computed.find(j.Property).length == 0) computed.remove();
+    }
+
+    addMethod(name) {
+        this.option('methods')
+            .get().value
+            .value.properties
+            .push(objProp(name, emptyFunc(), { method: true }));
+    }
+
+    removeMethod(name) {
+        const methods = this.option('methods');
+        methods.find(j.Property, { key: { name } }).remove();
+        if (methods.find(j.Property).length == 0) methods.remove();
     }
 
     toString() {

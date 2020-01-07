@@ -1,6 +1,6 @@
 const { expect } = require('chai');
 const VueParser = require('../../src/VueParser.js');
-describe('Vue Parser, which accepts a string and returns a collection of named ASTs', () => {
+describe('Vue Parser, which accepts a string and returns a collection of named ASTs with useful methods', () => {
     let asts;
     const inlineCmp = () => new VueParser(`<script>
 export default {}
@@ -87,21 +87,6 @@ export default {
             expect(asts.toString()).to.equal(`<script>
 export default {}
 </script>`);
-        });
-
-        it.skip('renames props', () => {
-            asts.addProp('foo');
-            asts.renameProp('foo', 'bar');
-            // in the props declarations
-            expect(asts.toString()).to.match(`<script>
-export default {
-    props: ['bar']
-};
-</script>`);
-            // in the template
-            // in the rest of the script
-            // in components that bind to it directly
-            // in tests that touch it
         });
     });
 
@@ -251,75 +236,22 @@ export default {}
 
     describe('methods', () => {
         it('adds methods', () => {
-            
+            asts.addMethod('foo');
+            expect(asts.toString()).to.equal(`<script>
+export default {
+    methods: {
+        foo() {}
+    }
+};
+</script>`);
         });
 
         it('removes methods', () => {
-
+            asts.addMethod('foo');
+            asts.removeMethod('foo');
+            expect(asts.toString()).to.equal(`<script>
+export default {}
+</script>`);
         });
     });
-
-    it('but most importantly, it can refactor itself to produce two new components', () => {
-        // show a real-life example, detailing how it extricates logic
-    });
-
-    // MOVE TO DIFFERENT MODULE THAT VUE PARSER HAPPENS TO USE
-    it(' (it also gives you a jQuery-like API for manipulating the DOM in the template', () => {
-
-    });
-
-    // MOVE TO DIFFERENT MODULE THAT VUE PARSER HAPPENS TO USE
-    it('  (as well as a similar DSL for dealing with the JS abstract syntax tree)', () => {
-
-    });
-
-    // MOVE TO A DIFFERENT MODULE THAT VUE PARSER HAPPENS TO USE
-    it('  (and yet another for postcss)', () => {
-
-    });
 });
-
-// router parser
-// bootstrap
-// add route
-// rename route
-// change component
-// manipulate all those properties of routes that I never use
-
-// store parser
-// bootstrap
-// add item
-// add mutator
-// add action
-// rename/delete/move to module for all of these
-
-// store/component integration:
-// see uses of store
-// offer "add to store" from within component
-// push data from component internals to store
-// inline data from store to component internals 
-
-// route/component integration:
-// see what routes this compoent is used in/directly attached to
-// add to new route
-// edit route(s) of current component
-
-
-// tailwind class editor
-// tailwind style pane
-// tailwind component extractor
-// tailwind visualizer
-
-// component pane
-// unit test integration
-
-// routes tree: generates component AST of all routes for visualizing, searching, and overlaying with live data
-// it's easier to see the real structure of the app, and ask where things are used
-
-// developer story: organize files and runtimes via a timeline that lays on top of an image of your app
-// visualize layers of architecture, files in a layer, connections among files
-// e.g., an input-to-output story showing acceptance/unit tests tied to source code && the execution path through the architecture
-// e.g., a site map
-
-// component REPL: link directly to live representations, in a browser or in nodejs
-// i.e., expose "this" of a component on command for manipulation from the (terminal? editor?)

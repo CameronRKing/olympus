@@ -19,7 +19,6 @@ function makeOptionProp(name) {
             ), { method: true });
         case 'props':
             return objProp(name, j.arrayExpression([]));
-        case 'components':
         default:
             return objProp(name, object());
     }
