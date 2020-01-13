@@ -91,18 +91,20 @@ exports.render = function render(tree, options) {
     }
 
     /** @private */
-    function attrs(obj) {
+    function attrs(obj, padding) {
         var attr = ''
-
+        const hasMultipleKeys = Object.keys(obj).length > 1;
+        const spacing = hasMultipleKeys ? '\n' + ' '.repeat(padding + 4) : ' ';
         for (var key in obj) {
             if (typeof obj[key] === 'string') {
-                attr += ' ' + key + '="' + obj[key].replace(/"/g, '&quot;') + '"'
+                attr += spacing + key + '="' + obj[key].replace(/"/g, '&quot;') + '"'
             } else if (obj[key] === true) {
-                attr += ' ' + key
+                attr += spacing + key
             } else if (typeof obj[key] === 'number') {
-                attr += ' ' + key + '="' + obj[key] + '"'
+                attr += spacing + key + '="' + obj[key] + '"'
             }
         }
+        if (hasMultipleKeys) attr += '\n' + ' '.repeat(padding);
 
         return attr
     }
@@ -143,13 +145,11 @@ exports.render = function render(tree, options) {
             // treat as new root tree if node is an array
             if (Array.isArray(node)) {
                 result += html(node)
-
                 return
             }
 
             if (typeof node === 'string' || typeof node === 'number') {
                 result += node
-
                 return
             }
 
@@ -162,21 +162,20 @@ exports.render = function render(tree, options) {
 
             var tag = node.tag || 'div'
 
+            const width = result.split('\n').slice(-1)[0].length;
             result += '<' + tag
 
             if (node.attrs) {
-                result += attrs(node.attrs)
+                result += attrs(node.attrs, width);
             }
 
             if (isSingleTag(tag) || shouldSelfClose(node)) {
                 switch (closingSingleTag) {
                     case 'tag':
                         result += '></' + tag + '>'
-
                         break
                     case 'slash':
                         result += ' />'
-
                         break
                     default:
                         result += '>'
