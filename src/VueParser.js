@@ -93,6 +93,11 @@ module.exports = class VueParser {
         if (option.find(j.Property).length == 0) option.remove();
     }
 
+    /**
+     * Given a component path relative to the project root,
+     * imports that component.
+     * @param {String} path 
+     */
     importComponent(path) {
         const cmpName = path.split('/').slice(-1)[0].split('.')[0];
         // ideally, we should be able to pull aliases out of wherever they are defined
