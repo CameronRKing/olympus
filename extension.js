@@ -3,7 +3,7 @@
 const vscode = require('vscode');
 const VueParser = require('./src/VueParser');
 const { wordUnderCursor, replaceEditorContent, findFilePath, getQuickAction, rootFolder } = require('./src/vsutils');
-const { pairs } = require('./src/utils.js');
+const j = require('jscodeshift');
 const fs = require('fs').promises;
 
 async function getCmp(editor) {
@@ -28,6 +28,15 @@ function actionSetup(cb) {
 		if (toReplace === false) return;
 		replaceEditorContent(editor, toReplace);
 	}
+}
+
+async function getToRemove(editor, cmp, toCall, placeholder) {
+	let toRemove = wordUnderCursor(editor);
+	let valid = Object.keys(cmp[toCall]());
+	if (!valid.includes(toRemove)) {
+		toRemove = await vscode.window.showQuickPick(valid, { placeholder });
+	}
+	return toRemove;
 }
 
 const actions = [
@@ -55,18 +64,27 @@ export default {};
 		return cmp.toString();
 	})],
 	['rp', 'remove prop', actionSetup(async (editor, cmp) => {
-		cmp.removeProp(wordUnderCursor(editor));
+		const toRemove = await getToRemove(editor, cmp, 'props', 'Select prop to remove');
+		cmp.removeProp(toRemove);
 		return cmp.toString();
 	})],
 	['ad', 'add data', actionSetup(async (editor, cmp) => {
 		const name = wordUnderCursor(editor);
-		const val = await vscode.window.showInputBox({ prompt: 'Value for new data (must be valid JS)' });
-		if (val === undefined) return false;
-		cmp.addData(name, val);
-		return cmp.toString();
+		cmp.addData(name, 'null');
+		await replaceEditorContent(editor, cmp.toString());
+		// have to re-parse the component to find the location of the new AST node
+		cmp = await getCmp(editor);
+		const dataValue = cmp.option('data').find(j.Property, { key: { name } }).get().value.value;
+		const { start, end } = dataValue.loc;
+		editor.selection = new vscode.Selection(
+			new vscode.Position(start.line - 1, start.column),
+			new vscode.Position(end.line - 1, end.column)
+		);
+		return false;
 	})],
 	['rd', 'remove data', actionSetup(async (editor, cmp) => {
-		cmp.removeData(wordUnderCursor(editor));
+		const toRemove = await getToRemove(editor, cmp, 'data', 'Select data to remove');
+		cmp.removeData(toRemove);
 		return cmp.toString();
 	})],
 	['aw', 'add watcher', actionSetup(async (editor, cmp) => {
@@ -74,7 +92,8 @@ export default {};
 		return cmp.toString();
 	})],
 	['rw', 'remove watcher', actionSetup(async (editor, cmp) => {
-		cmp.removeWatcher(wordUnderCursor(editor));
+		const toRemove = await getToRemove(editor, cmp, 'watchers', 'Select watcher to remove');
+		cmp.removeWatcher(toRemove);
 		return cmp.toString();
 	})],
 	['ac', 'add computed', actionSetup(async (editor, cmp) => {
@@ -90,7 +109,8 @@ export default {};
 		return cmp.toString();
 	})],
 	['rc', 'remove computed', actionSetup(async (editor, cmp) => {
-		cmp.removeComputed(wordUnderCursor(editor));
+		const toRemove = await getToRemove(editor, cmp, 'computed', 'Select computed to remove');
+		cmp.removeComputed(toRemove);
 		return cmp.toString();
 	})],
 	['am', 'add method', actionSetup(async (editor, cmp) => {
@@ -98,7 +118,8 @@ export default {};
 		return cmp.toString();
 	})],
 	['rm', 'remove method', actionSetup(async (editor, cmp) => {
-		cmp.removeMethod(wordUnderCursor(editor));
+		const toRemove = await getToRemove(editor, cmp, 'methods', 'Select method to remove');
+		cmp.removeMethod(toRemove);
 		return cmp.toString();
 	})],
 ];

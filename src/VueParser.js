@@ -129,6 +129,18 @@ module.exports = class VueParser {
         }
     }
 
+    /**
+     * Returns an object where key is prop name and value is the AST node for configuration || null
+     */
+    props() {
+        const props = this.option('props').get().value.value;
+        if (props.type == 'ArrayExpression') {
+            return mapWithKeys(props.elements, prop => [prop.value, null]);
+        } else {
+            return mapWithKeys(props.properties, prop => [prop.key.name, prop.value]);
+        }
+    }
+
     removeProp(name) {
         const props = this.option('props');
         
@@ -181,6 +193,17 @@ module.exports = class VueParser {
             .get().value.properties.push(objProp(name, parse(val).expression));
     }
 
+    /**
+     * Returns an object like the component's data, but the values are replaced by their AST nodes
+     */
+    data() {
+        const props = this.option('data').find(j.ReturnStatement)
+            .find(j.ObjectExpression)
+            .get().value
+            .properties;
+        return mapWithKeys(props, prop => [prop.key.name, prop.value]);
+    }
+
     setData(name, newVal) {
         const data = this.option('data');
         data.find(j.Property, { key: { name } })
@@ -202,6 +225,14 @@ module.exports = class VueParser {
             j.blockStatement([])
         ), { method: true });
         watchers.get().value.value.properties.push(watcher);
+    }
+
+    /**
+     * Returns an object where key is the watcher name and value is the function/object AST node
+     */
+    watchers() {
+        const watchers = this.option('watch').get().value.value.properties;
+        return mapWithKeys(watchers, watcher => [watcher.key.name, watcher.value]);
     }
 
     updateWatcher(name, attrs) {
@@ -246,6 +277,14 @@ module.exports = class VueParser {
             .push(objProp(name, emptyFunc(), { method: true }));
     }
 
+    /**
+     * Returns an object where key is the computed name and value is the corresponding function/object AST node
+     */
+    computed() {
+        const computed = this.option('computed').get().value.value.properties;
+        return mapWithKeys(computed, computer => [computer.key.name, computer.value]);
+    }
+
     addComputedSetter(name) {
         const node = this.option('computed')
             .find(j.Property, { key: { name } })
@@ -281,6 +320,14 @@ module.exports = class VueParser {
             .get().value
             .value.properties
             .push(objProp(name, emptyFunc(), { method: true }));
+    }
+
+    /**
+     * Returns an object where key is method name and value is function AST node
+     */
+    methods() {
+        const methods = this.option('methods').get().value.value.properties;
+        return mapWithKeys(methods, method => [method.key.name, method.value]);
     }
 
     removeMethod(name) {
