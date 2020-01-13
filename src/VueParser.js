@@ -1,8 +1,7 @@
 const j = require('jscodeshift');
 const posthtml = require('posthtml');
 const { render } = require('./htmlrender');
-const { toSource, getDefaultExport, objProp, addToTop, parse, object } = require('./node-utils');
-const { findOption, makeOptionProp } = require('./vue-utils');
+const { findObjProp, toSource, getDefaultExport, objProp, addToTop, parse, object } = require('./node-utils');
 const { mapWithKeys, pairs } = require('./utils');
 
 function emptyFunc() {
@@ -43,10 +42,17 @@ module.exports = class VueParser {
         return this.isDone;
     }
 
+    /**
+     * Looks for the given option in the Vue component.
+     * Returns if found.
+     * Initializes with default value and returns if not.
+     * @param {String} name 
+     * @returns {Collection} option
+     */
     option(name) {
-        let node = findOption(this.script, name);
+        let node = this.findOption(name);
         if (!node.length) {
-            const prop = makeOptionProp(name);
+            const prop = this.makeOptionProp(name);
             getDefaultExport(this.script).get().value.properties.push(prop);
             node = j(prop);
         }
@@ -54,8 +60,43 @@ module.exports = class VueParser {
         return node;
     }
 
+    findOption(name) {
+        return findObjProp(getDefaultExport(this.script), name);
+    }
+
+    makeOptionProp(name) {
+        switch (name) {
+            case 'data':
+                return objProp(name, j.functionExpression(null, [],
+                    j.blockStatement([
+                        j.returnStatement(
+                            j.objectExpression([])
+                        )
+                    ])
+                ), { method: true });
+            case 'props':
+                return objProp(name, j.arrayExpression([]));
+            default:
+                return objProp(name, object());
+        }
+    }
+
+    /**
+     * Removes the given property from the given option.
+     * If the option has no more properties, it is removed from the component.
+     * @param {String} option 
+     * @param {String} name 
+     */
+    removeFromOption(optionName, name) {
+        const option = this.option(optionName);
+        option.find(j.Property, { key: { name } }).remove();
+        if (option.find(j.Property).length == 0) option.remove();
+    }
+
     importComponent(path) {
         const cmpName = path.split('/').slice(-1)[0].split('.')[0];
+        // ideally, we should be able to pull aliases out of wherever they are defined
+        // but for now, hardwiring the default src alias is okay
         const aliasedPath = path.replace('src', '@');
 
         addToTop(this.script, parse(`import ${cmpName} from '${aliasedPath}';`));
@@ -70,13 +111,7 @@ module.exports = class VueParser {
             .closest(j.ImportDeclaration)
             .remove();
 
-        this.option('components')
-            .find(j.Property, { key: { name } })
-            .remove();
-        
-        if (this.option('components').get().value.value.properties.length == 0) {
-            this.option('components').remove();
-        }
+        this.removeFromOption('components', name);
     }
 
     addProp(name) {
@@ -98,10 +133,7 @@ module.exports = class VueParser {
                 props.remove();
             }
         } else {
-            props.find(j.Property, { key: { name } }).remove();
-            if (props.get().value.value.properties.length == 0) {
-                props.remove();
-            }
+            this.removeFromOption('props', name);
         }
     }
 
@@ -199,9 +231,7 @@ module.exports = class VueParser {
     }
 
     removeWatcher(name) {
-        const watch = this.option('watch');
-        watch.find(j.Property, { key: { name } }).remove();
-        if (watch.find(j.Property).length == 0) watch.remove();
+        this.removeFromOption('watch', name);
     }
 
     addComputed(name) {
@@ -238,9 +268,7 @@ module.exports = class VueParser {
     }
 
     removeComputed(name) {
-        const computed = this.option('computed');
-        computed.find(j.Property, { key: { name } }).remove();
-        if (computed.find(j.Property).length == 0) computed.remove();
+        this.removeFromOption('computed', name);
     }
 
     addMethod(name) {
@@ -251,9 +279,7 @@ module.exports = class VueParser {
     }
 
     removeMethod(name) {
-        const methods = this.option('methods');
-        methods.find(j.Property, { key: { name } }).remove();
-        if (methods.find(j.Property).length == 0) methods.remove();
+        this.removeFromOption('methods', name);
     }
 
     toString() {
