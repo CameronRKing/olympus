@@ -2,7 +2,12 @@
 // Import the module and reference it with the alias vscode in your code below
 const vscode = require('vscode');
 const VueParser = require('./src/VueParser');
-const { wordUnderCursor, replaceEditorContent, findFilePath, getQuickAction, rootFolder } = require('./src/vsutils');
+const { assocIn, mapWithKeys } = require('./src/utils');
+const {
+	wordUnderCursor, replaceEditorContent,
+	findFilePath, getQuickAction, rootFolder,
+	selectionFromNode
+} = require('./src/vsutils');
 const j = require('jscodeshift');
 const fs = require('fs').promises;
 
@@ -25,12 +30,12 @@ function actionSetup(cb) {
 		const cmp = await getCmp(editor);
 
 		const toReplace = await cb(editor, cmp);
-		if (toReplace === false) return;
+		if (typeof toReplace !== 'string') return;
 		replaceEditorContent(editor, toReplace);
 	}
 }
 
-async function getToRemove(editor, cmp, toCall, placeholder) {
+async function getValidChoice(editor, cmp, toCall, placeholder) {
 	let toRemove = wordUnderCursor(editor);
 	let valid = Object.keys(cmp[toCall]());
 	if (!valid.includes(toRemove)) {
@@ -63,8 +68,49 @@ export default {};
 		cmp.addProp(wordUnderCursor(editor));
 		return cmp.toString();
 	})],
+	['up', 'update prop', actionSetup(async (editor, cmp) => {
+		const toUpdate = await getValidChoice(editor, cmp, 'props', 'Select prop to update');
+		const optionsNode = cmp.props()[toUpdate];
+		// this represents a different kind of interface than getQuickAction (which is a name I don't like),
+		// though I don't have a good name for this one either, and it is quite clearly a larger abstraction
+		const options = [
+			['t', 'type'],
+			['r', 'required'],
+			['d', 'default'],
+			['v', 'validator'],
+		];
+		let existingOptions = [];
+		// prepopulate the QuickPick with the options that already exist on the prop
+		if (optionsNode) {
+			existingOptions = optionsNode.properties.map(prop => prop.key.name);
+		}
+		const selected = await getQuickAction(options, { canSelectMany: true, selectedItems: existingOptions });
+		const toRemove = existingOptions.filter(option => !selected.includes(option));
+		const toAdd = selected.filter(option => !existingOptions.includes(option));
+		const optionsPatch = assocIn(
+			mapWithKeys(toRemove, key => [key, null]),
+			mapWithKeys(toAdd, key => [key, 'true'])
+		);
+		console.log(selected, JSON.stringify(optionsPatch, null, 4));
+		cmp.updateProp(toUpdate, optionsPatch);
+		
+		// if there's nothing for the user to fill in, just update the source and quit early
+		if (!toAdd.length) {
+			return cmp.toString();
+		}
+
+		// if we added a new option, bring the cursor to the first added option so the user can set it
+		await replaceEditorContent(editor, cmp.toString());
+		cmp = await getCmp(editor);
+		const propOption = cmp.option('props')
+			.find(j.Property, { key: { name: toUpdate } })
+			.find(j.Property, { key: { name: toAdd[0] } })
+			.get().value.value;
+		editor.selection = selectionFromNode(propOption);
+		return false;
+	})],
 	['rp', 'remove prop', actionSetup(async (editor, cmp) => {
-		const toRemove = await getToRemove(editor, cmp, 'props', 'Select prop to remove');
+		const toRemove = await getValidChoice(editor, cmp, 'props', 'Select prop to remove');
 		cmp.removeProp(toRemove);
 		return cmp.toString();
 	})],
@@ -75,15 +121,11 @@ export default {};
 		// have to re-parse the component to find the location of the new AST node
 		cmp = await getCmp(editor);
 		const dataValue = cmp.option('data').find(j.Property, { key: { name } }).get().value.value;
-		const { start, end } = dataValue.loc;
-		editor.selection = new vscode.Selection(
-			new vscode.Position(start.line - 1, start.column),
-			new vscode.Position(end.line - 1, end.column)
-		);
+		editor.selection = selectionFromNode(dataValue);
 		return false;
 	})],
 	['rd', 'remove data', actionSetup(async (editor, cmp) => {
-		const toRemove = await getToRemove(editor, cmp, 'data', 'Select data to remove');
+		const toRemove = await getValidChoice(editor, cmp, 'data', 'Select data to remove');
 		cmp.removeData(toRemove);
 		return cmp.toString();
 	})],
@@ -92,7 +134,7 @@ export default {};
 		return cmp.toString();
 	})],
 	['rw', 'remove watcher', actionSetup(async (editor, cmp) => {
-		const toRemove = await getToRemove(editor, cmp, 'watchers', 'Select watcher to remove');
+		const toRemove = await getValidChoice(editor, cmp, 'watchers', 'Select watcher to remove');
 		cmp.removeWatcher(toRemove);
 		return cmp.toString();
 	})],
@@ -109,7 +151,7 @@ export default {};
 		return cmp.toString();
 	})],
 	['rc', 'remove computed', actionSetup(async (editor, cmp) => {
-		const toRemove = await getToRemove(editor, cmp, 'computed', 'Select computed to remove');
+		const toRemove = await getValidChoice(editor, cmp, 'computed', 'Select computed to remove');
 		cmp.removeComputed(toRemove);
 		return cmp.toString();
 	})],
@@ -118,14 +160,14 @@ export default {};
 		return cmp.toString();
 	})],
 	['rm', 'remove method', actionSetup(async (editor, cmp) => {
-		const toRemove = await getToRemove(editor, cmp, 'methods', 'Select method to remove');
+		const toRemove = await getValidChoice(editor, cmp, 'methods', 'Select method to remove');
 		cmp.removeMethod(toRemove);
 		return cmp.toString();
 	})],
 ];
 
-function getActionFn(shortcut) {
-	return actions.find(([code]) => code == shortcut)[2];
+function getActionFn(actionName) {
+	return actions.find(([_, name]) => name == actionName)[2];
 }
 
 function tailwindEdit() {
@@ -145,9 +187,9 @@ function registerCommand(context, name, cb) {
 // your extension is activated the very first time the command is executed
 exports.activate = function activate(context) {
 	registerCommand(context, 'extension.openMenu', async () => {
-		const code = await getQuickAction(actions);
-		if (!code) return;
-		getActionFn(code)();
+		const actionName = await getQuickAction(actions);
+		if (!actionName) return;
+		getActionFn(actionName)();
 	});
 }
 
