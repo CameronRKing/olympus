@@ -70,36 +70,37 @@ export default {};
 	})],
 	['up', 'update prop', actionSetup(async (editor, cmp) => {
 		const toUpdate = await getValidChoice(editor, cmp, 'props', 'Select prop to update');
-		const optionsNode = cmp.props()[toUpdate];
-		// this represents a different kind of interface than getQuickAction (which is a name I don't like),
-		// though I don't have a good name for this one either, and it is quite clearly a larger abstraction
+		
+		// prep for asking user to update options
 		const options = [
 			['t', 'type'],
 			['r', 'required'],
 			['d', 'default'],
 			['v', 'validator'],
 		];
-		let existingOptions = [];
-		// prepopulate the QuickPick with the options that already exist on the prop
-		if (optionsNode) {
-			existingOptions = optionsNode.properties.map(prop => prop.key.name);
-		}
+		const optionsNode = cmp.props()[toUpdate];
+		const existingOptions = optionsNode ? optionsNode.properties.map(prop => prop.key.name) : [];
+		
+		// ask user to quick-select which options the prop should have
 		const selected = await getQuickAction(options, { canSelectMany: true, selectedItems: existingOptions });
+
+		// make the changes
 		const toRemove = existingOptions.filter(option => !selected.includes(option));
 		const toAdd = selected.filter(option => !existingOptions.includes(option));
 		const optionsPatch = assocIn(
-			mapWithKeys(toRemove, key => [key, null]),
-			mapWithKeys(toAdd, key => [key, 'true'])
+			mapWithKeys(toRemove, key => [key, null]), // null removes the option from the prop
+			mapWithKeys(toAdd, key => [key, 'true'])   // we use 'true' (which gets parsed to a bool) purely as a filler value
 		);
-		console.log(selected, JSON.stringify(optionsPatch, null, 4));
 		cmp.updateProp(toUpdate, optionsPatch);
 		
-		// if there's nothing for the user to fill in, just update the source and quit early
+		// if there's nothing for the user to fill in, quit early and update the source
 		if (!toAdd.length) {
 			return cmp.toString();
 		}
 
 		// if we added a new option, bring the cursor to the first added option so the user can set it
+		// we could try to do something tab-triggered for editing all new options,
+		// but it seems more trouble than its worth for the moment
 		await replaceEditorContent(editor, cmp.toString());
 		cmp = await getCmp(editor);
 		const propOption = cmp.option('props')
