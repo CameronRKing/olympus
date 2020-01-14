@@ -44,6 +44,25 @@ async function getValidChoice(editor, cmp, toCall, placeholder) {
 	return toRemove;
 }
 
+/**
+ * Given two arrays and two mapping functions,
+ * returns an object that is the result of calculating which items were removed or added,
+ * then running them through their respective mapping functions
+ * and reducing them into a single object
+ * @param {Array} existing 
+ * @param {Array} selected 
+ * @param {Function => [key, value]} removed
+ * @param {Function => [key, value]} added
+ */
+function calcPatch(existing, selected, { removed, added }) {
+	const toRemove = existing.filter(item => !selected.includes(item));
+	const toAdd = selected.filter(item => !existing.includes(item));
+	return assocIn(
+		mapWithKeys(toRemove, removed),
+		mapWithKeys(toAdd, added)
+	);
+}
+
 const actions = [
 	['ic', 'import component', actionSetup(async (editor, cmp) => {
 		const cmpName = wordUnderCursor(editor);
@@ -85,12 +104,11 @@ export default {};
 		const selected = await getQuickAction(options, { canSelectMany: true, selectedItems: existingOptions });
 
 		// make the changes
-		const toRemove = existingOptions.filter(option => !selected.includes(option));
-		const toAdd = selected.filter(option => !existingOptions.includes(option));
-		const optionsPatch = assocIn(
-			mapWithKeys(toRemove, key => [key, null]), // null removes the option from the prop
-			mapWithKeys(toAdd, key => [key, 'true'])   // we use 'true' (which gets parsed to a bool) purely as a filler value
-		);
+		const toAdd = [];
+		const optionsPatch = calcPatch(existingOptions, selected, {
+			removed: option => [option, null],
+			added: option => { toAdd.push(option); return [option, 'true']; }
+		});
 		cmp.updateProp(toUpdate, optionsPatch);
 		
 		// if there's nothing for the user to fill in, quit early and update the source
@@ -125,6 +143,12 @@ export default {};
 		editor.selection = selectionFromNode(dataValue);
 		return false;
 	})],
+	['ud', 'update data', actionSetup(async (editor, cmp) => {
+		const toUpdate = await getValidChoice(editor, cmp, 'data', 'Select data to update');
+		const dataValueNode = cmp.data()[toUpdate];
+		editor.selection = selectionFromNode(dataValueNode);
+		return false;
+	})],
 	['rd', 'remove data', actionSetup(async (editor, cmp) => {
 		const toRemove = await getValidChoice(editor, cmp, 'data', 'Select data to remove');
 		cmp.removeData(toRemove);
@@ -132,6 +156,27 @@ export default {};
 	})],
 	['aw', 'add watcher', actionSetup(async (editor, cmp) => {
 		cmp.addWatcher(wordUnderCursor(editor));
+		return cmp.toString();
+	})],
+	['uw', 'update watcher', actionSetup(async (editor, cmp) => {
+		const toUpdate = await getValidChoice(editor, cmp, 'watchers', 'Select watcher to update');
+		const watcherNode = cmp.watchers()[toUpdate];
+		const existingOptions = watcherNode.type == 'ObjectExpression' ?
+			watcherNode.properties.map(prop => prop.key.name).filter(option => option != 'handler') :
+			[];
+		const options = [
+			['d', 'deep'],
+			['i', 'immediate']
+		];
+
+		const selected = await getQuickAction(options, { canSelectMany: true, selectedItems: existingOptions });
+
+		const optionsPatch = calcPatch(existingOptions, selected, {
+			removed: option => [option, null],
+			added: option => [option, true]
+		});
+		cmp.updateWatcher(toUpdate, optionsPatch);
+
 		return cmp.toString();
 	})],
 	['rw', 'remove watcher', actionSetup(async (editor, cmp) => {
