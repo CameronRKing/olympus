@@ -69,14 +69,14 @@ function prevIdx(arr, idx) {
 exports.next = next;
 function next(arr, item) {
     const idx = arr.indexOf(item);
-    if (idx == arr.length - 1) throw new Error('Item is at end of array. Cannot get next item.');
+    if (idx == arr.length - 1) return item;
     return arr[idx + 1];
 }
 
 exports.prev = prev;
 function prev(arr, item) {
     const idx = arr.indexOf(item);
-    if (idx == 0) throw new Error('Item is at start of array. Cannot get previous item.');
+    if (idx == 0) return item;
     return arr[idx - 1];
 }
 

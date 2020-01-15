@@ -8,6 +8,7 @@ const classToFamily = pairs(families).map(([propsAffected, classes]) =>
 ).reduce((acc, lookup) => assocIn(acc, lookup), {});
 exports.classToFamily = classToFamily;
 
+console.log(shortcuts);
 const shortcutToClass = shortcuts;
 exports.shortcutToClass = shortcutToClass;
 const classToShortcut = mapInvert(shortcutToClass);

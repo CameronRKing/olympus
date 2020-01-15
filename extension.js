@@ -2,13 +2,13 @@
 // Import the module and reference it with the alias vscode in your code below
 const vscode = require('vscode');
 const VueParser = require('./src/VueParser');
-const { assocIn, mapWithKeys, remove } = require('./src/utils');
+const { assocIn, mapWithKeys, remove, prev, next } = require('./src/utils');
 const {
 	wordUnderCursor, replaceEditorContent,
 	findFilePath, quickSelect, rootFolder,
 	selectionFromNode
 } = require('./src/vsutils');
-const { shortcutToClass, getPatch } = require('./src/TailwindEditor');
+const { shortcutToClass, classToShortcut, allClasses, getPatch, classToFamily, familyToClasses } = require('./src/TailwindEditor');
 const j = require('jscodeshift');
 const fs = require('fs').promises;
 
@@ -17,11 +17,6 @@ async function getCmp(editor) {
 	const cmp = new VueParser(text);
 	await cmp.isDone;
 	return cmp;
-}
-
-function log(...msg) {
-	vscode.window.showInformationMessage(...msg);
-	return true;
 }
 
 function actionSetup(cb) {
@@ -242,44 +237,116 @@ export default {};
 
 		tailwindEdit(editor, cmp, nodeToEdit);
 	})],
+	['ss', 'client socket snippet for live class editing', () => {
+		vscode.env.clipboard.writeText(`
+(function() {
+    const socket = io.connect('http://localhost:4242');
+    socket.on('edit-class', ({ id, patch }) => { 
+        document.querySelectorAll(\`[data-olympus="\${ id }"]\`)
+            .forEach(el => {
+                if (patch.remove) el.classList.remove(patch.remove);
+                if (patch.add) el.classList.add(patch.add);
+            });
+    });
+})();`);
+		vscode.window.showInformationMessage('Snippet copied to clipboard!');
+	}],
+	['ai', 'add olympus ids', actionSetup(async (editor, cmp) => {
+		const nextOlympusId = (cmp) => {
+			let nodes = [];
+			cmp.tree.match({ attrs: { 'data-olympus': /.*/ } }, node => {
+				nodes.push(node);
+				return node;
+			});
+			const ids = nodes.map(n => Number(n.attrs['data-palette']));
+
+			if (!ids.length) return 0;
+
+			return Math.max.apply(null, ids) + 1;
+		};
+
+		let id = nextOlympusId(cmp);
+		const addOlympusId = (node) => {
+			if (['script', 'template', 'style'].includes(node.tag)) return node;
+
+			if (!node.attrs) node.attrs = {};
+			node.attrs['data-olympus'] = id++;
+			return node;
+		}
+
+		cmp.tree.match({ attrs: undefined }, addOlympusId);
+		cmp.tree.match({ attrs: { 'data-olympus': undefined } }, addOlympusId);
+
+		return cmp.toString();
+	})],
+	['ri', 'remove olympus ids', actionSetup(async (editor, cmp) => {
+		cmp.tree.walk(node => {
+			if (node.attrs && node.attrs['data-olympus']) {
+				node.attrs['data-olympus'] = undefined;
+			}
+			return node;
+		});
+		return cmp.toString();
+	})]
 ];
 
-function getActionFn(actionName) {
-	return actions.find(([_, name]) => name == actionName)[2];
-}
-
 function tailwindEdit(editor, cmp, node) {
-	const input = vscode.window.createInputBox();
 	if (!node.attrs) node.attrs = {};
 	if (!node.attrs.class) node.attrs.class = '';
-	const notEmpty = str => str != '';
-	let classList = node.attrs.class.split(' ').filter(notEmpty);
 
-	const update = () => {
-		node.attrs.class = classList.join(' ');
-		if (node.attrs.class == '') node.attrs.class = undefined;
-		replaceEditorContent(editor, cmp.toString());
-		input.value = '';
-	}
-
+	let classList = node.attrs.class.split(' ').filter(str => str != '');
+	
+	const input = vscode.window.createInputBox();
+	let justNavigated = false;
 	input.onDidChangeValue(value => {
-		const cclass = shortcutToClass[value];
-		if (cclass !== undefined) {
-			const patch = getPatch(classList, cclass);
-			console.log('patch', patch);
-			if (patch.remove) remove(classList, patch.remove);
-			if (patch.add) classList.push(patch.add);
-
-			update();
-		} else if (value.endsWith(' ')) {
-			const cclass = value.trim();
-			if (classList.includes(cclass)) remove(classList, cclass);
-			else classList.push(cclass);
-
-			update();
+		const suffix = value[value.length - 1];
+		const prefix = value.slice(0, -1);
+		if (suffix == ' ') {
+			if (justNavigated) {
+				input.value = '';
+				justNavigated = false;
+				return;
+			}
+			const cclass = shortcutToClass[prefix];
+			if (cclass) patchClasses(cclass);
+			else (patchClasses(value.trim()));
+			input.value = '';
+		} else if ((shortcutToClass[prefix] || allClasses.includes(prefix)) && ['j', 'k'].includes(suffix)) {
+			// there's a chance of this logic going awry, but I think the chances are low enough to risk it
+			// (consider would would happen if we had shortcuts df and dfjr)
+			const currClass = shortcutToClass[prefix] || prefix;
+			let nextClass;
+			const siblings = (cclass) => familyToClasses[classToFamily[cclass]];
+			
+			if (suffix == 'j') nextClass = prev(siblings(currClass), currClass);
+			if (suffix == 'k') nextClass = next(siblings(currClass), currClass);
+			
+			patchClasses(nextClass);
+			input.value = classToShortcut[nextClass] || nextClass;
+			justNavigated = true;
 		}
 	});
 	input.show();
+	
+	const patchClasses = (cclass) => {
+		const patch = getPatch(classList, cclass);
+		if (patch.remove) remove(classList, patch.remove);
+		if (patch.add) classList.push(patch.add);
+		update(patch);
+	};
+
+	const update = (patch) => {
+		if (socket) socket.emit('edit-class', { id: node.attrs['data-olympus'], patch });
+
+		node.attrs.class = classList.join(' ');
+		if (node.attrs.class == '') node.attrs.class = undefined;
+		replaceEditorContent(editor, cmp.toString());
+	};
+
+}
+
+function getActionFn(actionName) {
+	return actions.find(([_, name]) => name == actionName)[2];
 }
 
 function registerCommand(context, name, cb) {
@@ -288,6 +355,7 @@ function registerCommand(context, name, cb) {
 }
 // this code is called when your extension is activated
 // your extension is activated the very first time the command is executed
+const socket = require('socket.io')('4242');
 exports.activate = function activate(context) {
 	registerCommand(context, 'extension.openMenu', async () => {
 		const actionName = await quickSelect(actions);
