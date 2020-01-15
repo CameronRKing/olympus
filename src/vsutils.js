@@ -44,10 +44,10 @@ exports.findFilePath = findFilePath;
  * Short-circuits the QuickPick UI based on the keyboard shortcuts provided
  * If canSelectMany is true, the best way out is Esc
  * The UI doesn't update the way I'd like (selected/active items aren't displaying properly),
- * but the logic does work. You just have to ignore the interface and focus on keys you press.
+ * but the logic does work. You just have to ignore the interface and focus on the keys you press.
  * @param {Array [shortcut, description]} shortcuts 
  */
-function getQuickAction(shortcuts, { canSelectMany=false, selectedItems=[] }={}) {
+function quickSelect(shortcuts, { canSelectMany=false, selectedItems=[] }={}) {
     const picker = vscode.window.createQuickPick();
     const items = shortcuts.map(([label, detail]) => ({ label, detail }));
     picker.items = items;
@@ -75,7 +75,7 @@ function getQuickAction(shortcuts, { canSelectMany=false, selectedItems=[] }={})
         picker.show();
     });
 }
-exports.getQuickAction = getQuickAction;
+exports.quickSelect = quickSelect;
 
 function rootFolder() {
     return vscode.workspace.workspaceFolders[0].uri.fsPath;

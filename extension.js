@@ -5,7 +5,7 @@ const VueParser = require('./src/VueParser');
 const { assocIn, mapWithKeys } = require('./src/utils');
 const {
 	wordUnderCursor, replaceEditorContent,
-	findFilePath, getQuickAction, rootFolder,
+	findFilePath, quickSelect, rootFolder,
 	selectionFromNode
 } = require('./src/vsutils');
 const j = require('jscodeshift');
@@ -35,9 +35,9 @@ function actionSetup(cb) {
 	}
 }
 
-async function getValidChoice(editor, cmp, toCall, placeholder) {
+async function getValidChoice(editor, cmp, dataSrc, placeholder) {
 	let toRemove = wordUnderCursor(editor);
-	let valid = Object.keys(cmp[toCall]());
+	const valid = Object.keys(cmp[dataSrc]());
 	if (!valid.includes(toRemove)) {
 		toRemove = await vscode.window.showQuickPick(valid, { placeholder });
 	}
@@ -63,9 +63,14 @@ function calcPatch(existing, selected, { removed, added }) {
 	);
 }
 
+function confirmWordUnderCursor(editor, prompt='') {
+	const value = wordUnderCursor(editor);
+	return vscode.window.showInputBox({ value, prompt });
+}
+
 const actions = [
 	['ic', 'import component', actionSetup(async (editor, cmp) => {
-		const cmpName = wordUnderCursor(editor);
+		const cmpName = await confirmWordUnderCursor(editor, 'Type component name (not path)');
 		let filePath = await findFilePath(cmpName + '.vue')
 		
 		if (!filePath) {
@@ -80,11 +85,13 @@ export default {};
 		return cmp.toString();
 	})],
 	['dc', 'deport component', actionSetup(async (editor, cmp) => {
-		cmp.deportComponent(wordUnderCursor(editor));
+		const toRemove = await getValidChoice(editor, cmp, 'components', 'Select component to deport');
+		cmp.deportComponent(toRemove);
 		return cmp.toString();
 	})],
 	['ap', 'add prop', actionSetup(async (editor, cmp) => {
-		cmp.addProp(wordUnderCursor(editor));
+		const propName = await confirmWordUnderCursor(editor, 'Type prop name');
+		cmp.addProp(propName);
 		return cmp.toString();
 	})],
 	['up', 'update prop', actionSetup(async (editor, cmp) => {
@@ -101,7 +108,7 @@ export default {};
 		const existingOptions = optionsNode ? optionsNode.properties.map(prop => prop.key.name) : [];
 		
 		// ask user to quick-select which options the prop should have
-		const selected = await getQuickAction(options, { canSelectMany: true, selectedItems: existingOptions });
+		const selected = await quickSelect(options, { canSelectMany: true, selectedItems: existingOptions });
 
 		// make the changes
 		const toAdd = [];
@@ -134,7 +141,7 @@ export default {};
 		return cmp.toString();
 	})],
 	['ad', 'add data', actionSetup(async (editor, cmp) => {
-		const name = wordUnderCursor(editor);
+		const name = await confirmWordUnderCursor(editor, 'Type data name');
 		cmp.addData(name, 'null');
 		await replaceEditorContent(editor, cmp.toString());
 		// have to re-parse the component to find the location of the new AST node
@@ -155,7 +162,8 @@ export default {};
 		return cmp.toString();
 	})],
 	['aw', 'add watcher', actionSetup(async (editor, cmp) => {
-		cmp.addWatcher(wordUnderCursor(editor));
+		const watcherName = await confirmWordUnderCursor(editor, 'Type watcher name');
+		cmp.addWatcher(watcherName);
 		return cmp.toString();
 	})],
 	['uw', 'update watcher', actionSetup(async (editor, cmp) => {
@@ -169,7 +177,7 @@ export default {};
 			['i', 'immediate']
 		];
 
-		const selected = await getQuickAction(options, { canSelectMany: true, selectedItems: existingOptions });
+		const selected = await quickSelect(options, { canSelectMany: true, selectedItems: existingOptions });
 
 		const optionsPatch = calcPatch(existingOptions, selected, {
 			removed: option => [option, null],
@@ -185,15 +193,18 @@ export default {};
 		return cmp.toString();
 	})],
 	['ac', 'add computed', actionSetup(async (editor, cmp) => {
-		cmp.addComputed(wordUnderCursor(editor));
+		const computedName = await confirmWordUnderCursor(editor, 'Type computed name');
+		cmp.addComputed(computedName);
 		return cmp.toString();
 	})],
 	['asc', 'add setter to computed', actionSetup(async (editor, cmp) => {
-		cmp.addComputedSetter(wordUnderCursor(editor));
+		const computedName = await getValidChoice(editor, cmp, 'computed', 'Select computed to add setter to');
+		cmp.addComputedSetter(computedName);
 		return cmp.toString();
 	})],
 	['rsc', 'remove setter from computed', actionSetup(async (editor, cmp) => {
-		cmp.removeComputedSetter(wordUnderCursor(editor));
+		const computedName = await getValidChoice(editor, cmp, 'computed', 'Select computed to remove setter from');
+		cmp.removeComputedSetter(computedName);
 		return cmp.toString();
 	})],
 	['rc', 'remove computed', actionSetup(async (editor, cmp) => {
@@ -202,7 +213,8 @@ export default {};
 		return cmp.toString();
 	})],
 	['am', 'add method', actionSetup(async (editor, cmp) => {
-		cmp.addMethod(wordUnderCursor(editor));
+		const methodName = await confirmWordUnderCursor(editor, 'Type method name');
+		cmp.addMethod(methodName);
 		return cmp.toString();
 	})],
 	['rm', 'remove method', actionSetup(async (editor, cmp) => {
@@ -233,7 +245,7 @@ function registerCommand(context, name, cb) {
 // your extension is activated the very first time the command is executed
 exports.activate = function activate(context) {
 	registerCommand(context, 'extension.openMenu', async () => {
-		const actionName = await getQuickAction(actions);
+		const actionName = await quickSelect(actions);
 		if (!actionName) return;
 		getActionFn(actionName)();
 	});
