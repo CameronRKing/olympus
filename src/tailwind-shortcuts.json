@@ -1,0 +1,16 @@
+{
+    "df": "flex",
+    "dfr": "flex-row-reverse",
+    "dfc": "flex-column",
+    "dfcr": "flex-column-reverse",
+    "js": "justify-start",
+    "jc": "justify-center",
+    "je": "justify-end",
+    "ja": "justify-around",
+    "jb": "justify-between",
+    "is": "items-start",
+    "ir": "items-stretch",
+    "ic": "items-center",
+    "ie": "items-end",
+    "ib": "items-baseline"
+}

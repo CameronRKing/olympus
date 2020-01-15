@@ -2,12 +2,13 @@
 // Import the module and reference it with the alias vscode in your code below
 const vscode = require('vscode');
 const VueParser = require('./src/VueParser');
-const { assocIn, mapWithKeys } = require('./src/utils');
+const { assocIn, mapWithKeys, remove } = require('./src/utils');
 const {
 	wordUnderCursor, replaceEditorContent,
 	findFilePath, quickSelect, rootFolder,
 	selectionFromNode
 } = require('./src/vsutils');
+const { shortcutToClass, getPatch } = require('./src/TailwindEditor');
 const j = require('jscodeshift');
 const fs = require('fs').promises;
 
@@ -222,17 +223,61 @@ export default {};
 		cmp.removeMethod(toRemove);
 		return cmp.toString();
 	})],
+	['et', 'edit tailwind classes', actionSetup(async (editor, cmp) => {
+		// ideally I'd match the user's cursor position to a node in the AST
+		// however, it's not as easy as you might think. posthtml doesn't track location info,
+		// and the parsers I've found that do don't have the render/manipulation functions I'd like
+		// so we're going with a hack
+		// we'll find the first tag previous to the user's cursor and count the number of same tags before it
+		// then we'll walk the tree and take the nth AST node with that tag
+		const contents = editor.document.getText();
+		const cursorPos = editor.document.offsetAt(editor.selection.active);
+		const tags = contents.slice(0, cursorPos).match(/<\w+/g);
+		const prevTags = tags.slice(0, -1);
+		const lastTag = tags.slice(-1)[0];
+		const numTagsBefore = prevTags.filter(tag => tag == lastTag).length;
+		const tagNodes = [];
+		cmp.tree.match({ tag: lastTag.slice(1) }, node => { tagNodes.push(node); return node; });
+		const nodeToEdit = tagNodes[numTagsBefore];
+
+		tailwindEdit(editor, cmp, nodeToEdit);
+	})],
 ];
 
 function getActionFn(actionName) {
 	return actions.find(([_, name]) => name == actionName)[2];
 }
 
-function tailwindEdit() {
+function tailwindEdit(editor, cmp, node) {
 	const input = vscode.window.createInputBox();
+	if (!node.attrs) node.attrs = {};
+	if (!node.attrs.class) node.attrs.class = '';
+	const notEmpty = str => str != '';
+	let classList = node.attrs.class.split(' ').filter(notEmpty);
+
+	const update = () => {
+		node.attrs.class = classList.join(' ');
+		if (node.attrs.class == '') node.attrs.class = undefined;
+		replaceEditorContent(editor, cmp.toString());
+		input.value = '';
+	}
+
 	input.onDidChangeValue(value => {
-		if (value.endsWith('j'))
-			input.value = value.replace('j', '<j>')
+		const cclass = shortcutToClass[value];
+		if (cclass !== undefined) {
+			const patch = getPatch(classList, cclass);
+			console.log('patch', patch);
+			if (patch.remove) remove(classList, patch.remove);
+			if (patch.add) classList.push(patch.add);
+
+			update();
+		} else if (value.endsWith(' ')) {
+			const cclass = value.trim();
+			if (classList.includes(cclass)) remove(classList, cclass);
+			else classList.push(cclass);
+
+			update();
+		}
 	});
 	input.show();
 }
