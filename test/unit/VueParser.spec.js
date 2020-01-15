@@ -44,6 +44,19 @@ export default {
     props: ['foo']
 };
 </script>`);
+
+            asts.updateProp('foo', { default: 'true' });
+            asts.addProp('bar');
+            expect(asts.toString()).to.equal(`<script>
+export default {
+    props: {
+        foo: {
+            default: true
+        },
+        bar: {}
+    }
+};
+</script>`)
         });
 
         it('updates required/default/type/validator', () => {

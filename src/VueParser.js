@@ -111,6 +111,17 @@ module.exports = class VueParser {
         components.get().value.value.properties.push(cmpProp);
     }
 
+    /**
+     * Returns an  object where key is name of component and value is true
+     * Returns an object instead of an array for consistency with similar methods
+     */
+    components() {
+        return mapWithKeys(
+            this.option('components').get().value.value.properties,
+            prop => [prop.key.name, true]
+        );
+    }
+
     deportComponent(name) {
         this.script.find(j.ImportDefaultSpecifier, { local: { name } })
             .closest(j.ImportDeclaration)
@@ -125,7 +136,7 @@ module.exports = class VueParser {
         if (props.value.type == 'ArrayExpression') {
             props.value.elements.push(j.literal(name));
         } else {
-            props.value.value.properties.push(objProp(name, object()));
+            props.value.properties.push(objProp(name, object()));
         }
     }
 
