@@ -16,21 +16,26 @@ exports.classToShortcut = classToShortcut;
 const allClasses = Object.values(families).reduce((acc, arr) => acc.concat(arr), []);
 exports.allClasses = allClasses;
 
-function getPatch(classList, givenClass) {
+function getPatch(classList, givenClass, variants) {
     // if it's already there, remove it
-    if (classList.includes(givenClass)) {
-        return { remove: givenClass }
+    const fullClass = (variants ? variants + ':' : '') + givenClass;
+    if (classList.includes(fullClass)) {
+        return { remove:  fullClass }
     } else {
         const family = classToFamily[givenClass];
-        const existingFamilyMember = classList.find(cclass => classToFamily[cclass] == family);
-        if (existingFamilyMember) {
+        const existingFamilyMember = classList.find(str => {
+            const vvariants = str.split(':').slice(0, -1).join(':');
+            const cclass = str.split(':').slice(-1)[0];
+            return classToFamily[cclass] == family && vvariants == variants;
+        });
+        if (family !== undefined && existingFamilyMember) {
             return {
                 remove: existingFamilyMember,
-                add: givenClass
+                add: fullClass
             };
         } else {
             return {
-                add: givenClass
+                add: fullClass
             }
         }
     }

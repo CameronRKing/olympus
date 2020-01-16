@@ -300,36 +300,37 @@ function tailwindEdit(editor, cmp, node) {
 	let justNavigated = false;
 	input.onDidChangeValue(value => {
 		const suffix = value[value.length - 1];
-		const prefix = value.slice(0, -1);
+		const shortcut = value.slice(0, -1).split(':').slice(-1)[0];
+		const variants = value.split(':').slice(0, -1).join(':');
 		if (suffix == ' ') {
 			if (justNavigated) {
 				input.value = '';
 				justNavigated = false;
 				return;
 			}
-			const cclass = shortcutToClass[prefix];
-			if (cclass) patchClasses(cclass);
-			else (patchClasses(value.trim()));
+			const cclass = shortcutToClass[shortcut];
+			if (cclass) patchClasses(variants, cclass);
+			else (patchClasses(variants, value.trim()));
 			input.value = '';
-		} else if ((shortcutToClass[prefix] || allClasses.includes(prefix)) && ['j', 'k'].includes(suffix)) {
+		} else if ((shortcutToClass[shortcut] || allClasses.includes(shortcut)) && ['j', 'k'].includes(suffix)) {
 			// there's a chance of this logic going awry, but I think the chances are low enough to risk it
 			// (consider would would happen if we had shortcuts df and dfjr)
-			const currClass = shortcutToClass[prefix] || prefix;
+			const currClass = shortcutToClass[shortcut] || shortcut;
 			let nextClass;
 			const siblings = (cclass) => familyToClasses[classToFamily[cclass]];
 			
 			if (suffix == 'j') nextClass = prev(siblings(currClass), currClass);
 			if (suffix == 'k') nextClass = next(siblings(currClass), currClass);
 			
-			patchClasses(nextClass);
-			input.value = classToShortcut[nextClass] || nextClass;
+			patchClasses(variants, nextClass);
+			input.value = (variants ? variants + ':' : '') + (classToShortcut[nextClass] || nextClass);
 			justNavigated = true;
 		}
 	});
 	input.show();
 	
-	const patchClasses = (cclass) => {
-		const patch = getPatch(classList, cclass);
+	const patchClasses = (variants, cclass) => {
+		const patch = getPatch(classList, cclass, variants);
 		if (patch.remove) remove(classList, patch.remove);
 		if (patch.add) classList.push(patch.add);
 		update(patch);
