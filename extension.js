@@ -2,7 +2,7 @@
 // Import the module and reference it with the alias vscode in your code below
 const vscode = require('vscode');
 const VueParser = require('./src/VueParser');
-const { assocIn, mapWithKeys, remove, prev, next } = require('./src/utils');
+const { pairs, assocIn, mapWithKeys, remove, prev, next } = require('./src/utils');
 const {
 	wordUnderCursor, replaceEditorContent,
 	findFilePath, quickSelect, rootFolder,
@@ -296,22 +296,25 @@ function tailwindEdit(editor, cmp, node) {
 
 	let classList = node.attrs.class.split(' ').filter(str => str != '');
 	
-	const input = vscode.window.createInputBox();
+	const picker = vscode.window.createQuickPick();
+	picker.items = pairs(shortcutToClass).map(([shortcut, cclass]) => ({ label: shortcut, detail: cclass, description: classToFamily[cclass] }));
+	picker.matchOnDetail = true;
+	picker.matchOnDescription = true;
 	let justNavigated = false;
-	input.onDidChangeValue(value => {
+	picker.onDidChangeValue(value => {
 		const suffix = value[value.length - 1];
 		const shortcut = value.slice(0, -1).split(':').slice(-1)[0];
 		const variants = value.split(':').slice(0, -1).join(':');
 		if (suffix == ' ') {
 			if (justNavigated) {
-				input.value = '';
+				picker.value = '';
 				justNavigated = false;
 				return;
 			}
 			const cclass = shortcutToClass[shortcut];
 			if (cclass) patchClasses(variants, cclass);
 			else (patchClasses(variants, value.trim()));
-			input.value = '';
+			picker.value = '';
 		} else if ((shortcutToClass[shortcut] || allClasses.includes(shortcut)) && ['j', 'k'].includes(suffix)) {
 			// there's a chance of this logic going awry, but I think the chances are low enough to risk it
 			// (consider would would happen if we had shortcuts df and dfjr)
@@ -323,11 +326,11 @@ function tailwindEdit(editor, cmp, node) {
 			if (suffix == 'k') nextClass = next(siblings(currClass), currClass);
 			
 			patchClasses(variants, nextClass);
-			input.value = (variants ? variants + ':' : '') + (classToShortcut[nextClass] || nextClass);
+			picker.value = (variants ? variants + ':' : '') + (classToShortcut[nextClass] || nextClass);
 			justNavigated = true;
 		}
 	});
-	input.show();
+	picker.show();
 	
 	const patchClasses = (variants, cclass) => {
 		const patch = getPatch(classList, cclass, variants);
