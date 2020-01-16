@@ -297,9 +297,21 @@ function tailwindEdit(editor, cmp, node) {
 	let classList = node.attrs.class.split(' ').filter(str => str != '');
 	
 	const picker = vscode.window.createQuickPick();
-	picker.items = pairs(shortcutToClass).map(([shortcut, cclass]) => ({ label: shortcut, detail: cclass, description: classToFamily[cclass] }));
+	const classesWithShortcuts = pairs(shortcutToClass).map(([shortcut, cclass]) => ({
+		label: shortcut,
+		detail: cclass,
+		description: classToFamily[cclass]
+	}));
+	const classesWithoutShortcuts = allClasses.filter(cclass => classToShortcut[cclass] === undefined)
+		.map(cclass => ({
+			label: '< none >',
+			detail: cclass,
+			description: classToFamily[cclass]
+		}));
+	picker.items = classesWithShortcuts.concat(classesWithoutShortcuts);
 	picker.matchOnDetail = true;
 	picker.matchOnDescription = true;
+	
 	let justNavigated = false;
 	picker.onDidChangeValue(value => {
 		const suffix = value[value.length - 1];
