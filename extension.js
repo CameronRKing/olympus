@@ -8,7 +8,9 @@ const {
 	findFilePath, quickSelect, rootFolder,
 	selectionFromNode
 } = require('./src/vsutils');
-const { shortcutToClass, classToShortcut, allClasses, getPatch, classToFamily, familyToClasses } = require('./src/TailwindEditor');
+const { shortcutToClass, classToShortcut, allClasses, 
+	getPatch, classToFamily, familyToClasses,
+	generateComponentClasses } = require('./src/TailwindEditor');
 const j = require('jscodeshift');
 const fs = require('fs').promises;
 
@@ -219,23 +221,19 @@ export default {};
 		return cmp.toString();
 	})],
 	['et', 'edit tailwind classes', actionSetup(async (editor, cmp) => {
-		// ideally I'd match the user's cursor position to a node in the AST
-		// however, it's not as easy as you might think. posthtml doesn't track location info,
-		// and the parsers I've found that do don't have the render/manipulation functions I'd like
-		// so we're going with a hack
-		// we'll find the first tag previous to the user's cursor and count the number of same tags before it
-		// then we'll walk the tree and take the nth AST node with that tag
-		const contents = editor.document.getText();
-		const cursorPos = editor.document.offsetAt(editor.selection.active);
-		const tags = contents.slice(0, cursorPos).match(/<\w+/g);
-		const prevTags = tags.slice(0, -1);
-		const lastTag = tags.slice(-1)[0];
-		const numTagsBefore = prevTags.filter(tag => tag == lastTag).length;
-		const tagNodes = [];
-		cmp.tree.match({ tag: lastTag.slice(1) }, node => { tagNodes.push(node); return node; });
-		const nodeToEdit = tagNodes[numTagsBefore];
-
+		const nodeToEdit = getTagNodeBeforeCursor(editor, cmp);
 		tailwindEdit(editor, cmp, nodeToEdit);
+	})],
+	['ex', 'extract tailwind component class', actionSetup(async (editor, cmp) => {
+		const nodeToEdit = getTagNodeBeforeCursor(editor, cmp);
+		const classList = nodeToEdit.attrs.class.split(' ');
+		const componentName = await vscode.window.showInputBox({ prompt: 'Type component class name' });
+		if (componentName === undefined) return false;
+
+		vscode.env.clipboard.writeText(generateComponentClasses(classList, componentName));
+		nodeToEdit.attrs.class = componentName;
+		vscode.window.showInformationMessage('Component classes copied to clipboard!');
+		return cmp.toString();
 	})],
 	['ss', 'client socket snippet for live class editing', () => {
 		vscode.env.clipboard.writeText(`
@@ -289,6 +287,24 @@ export default {};
 		return cmp.toString();
 	})]
 ];
+
+function getTagNodeBeforeCursor(editor, cmp) {
+	// ideally I'd match the user's cursor position to a node in the AST
+	// however, it's not as easy as you might think. posthtml doesn't track location info,
+	// and the parsers I've found that do don't have the render/manipulation functions I'd like
+	// so we're going with a hack
+	// we'll find the first tag previous to the user's cursor and count the number of same tags before it
+	// then we'll walk the tree and take the nth AST node with that tag
+	const contents = editor.document.getText();
+	const cursorPos = editor.document.offsetAt(editor.selection.active);
+	const tags = contents.slice(0, cursorPos).match(/<\w+/g);
+	const prevTags = tags.slice(0, -1);
+	const lastTag = tags.slice(-1)[0];
+	const numTagsBefore = prevTags.filter(tag => tag == lastTag).length;
+	const tagNodes = [];
+	cmp.tree.match({ tag: lastTag.slice(1) }, node => { tagNodes.push(node); return node; });
+	return tagNodes[numTagsBefore];
+}
 
 function tailwindEdit(editor, cmp, node) {
 	if (!node.attrs) node.attrs = {};

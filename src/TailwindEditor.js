@@ -42,30 +42,52 @@ function getPatch(classList, givenClass, variants) {
 }
 exports.getPatch = getPatch;
 
-// selection is an ad hoc object from the first prototype that combines an on-screen element with its source hast node
-// givenClass is a string containing the new tailwind class that we've received
-// if on the element, it's removed
-// if there's another family member (affecting the exact same attributes), the new one replaces the old one
-// else it just gets added
-// this function does this to both the on-screen element and the hast node
-function editTailwindClasses(selection, givenClass) {
-    const el = selection.el;
-    return selection.findByDataId(node => {
-        if (!node.attrs) node.attrs = {};
-        if (!node.attrs.class) node.attrs.class = '';
-
-        const elList = el.classList;
-        const srcList = node.attrs.class.split(' ').filter(str => str); // remove empty strings
-        const { remove, add } = getPatch(Array.from(elList), givenClass);
-        if (remove) {
-            elList.remove(remove);
-            srcList.splice(srcList.indexOf(remove), 1);
-        }
-        if (add) {
-            elList.add(add);
-            srcList.push(add);
-        }
-        node.attrs.class = srcList.join(' ');
-        return node;
+function generateComponentClasses(classList, componentName) {
+    const bySize = { none: [], sm: [], md: [], lg: [], xl: [] };
+    classList.forEach(cclass => {
+        const size = cclass.slice(0, 2);
+        if (bySize[size]) bySize[size].push(cclass.slice(3));
+        else bySize.none.push(cclass);
     });
+    return pairs(bySize).map(([size, classes]) => {
+        if (classes.length == 0) return '';
+        const variants = ['hover', 'focus', 'active', 'disabled', 'visited',
+            'focus', 'first', 'last', 'odd', 'even', 'group-hover', 'none'];
+        const byVariant = mapWithKeys(variants, variant => [variant, []]);
+        classes.forEach(cclass => {
+            if (!cclass.includes(':')) byVariant.none.push(cclass);
+            else {
+                const [variant, name] = cclass.split(':');
+                // if we don't recognize it, ignore it
+                if (!byVariant[variant]) return;
+                byVariant[variant].push(name);
+            }
+        });
+
+        const getRuleName = (variant) => {
+            const childMappings = {
+                first: ':first-child',
+                last: ':last-child',
+                odd: ':nth-child(odd)',
+                even: ':nth-child(even)',
+            };
+
+            if (variant == 'none') return `.${componentName}`;
+            if (childMappings[variant]) return `.${componentName}${childMappings[variant]}`;
+            if (variant == 'group-hover') return `.group:hover .${componentName}`;
+            return `.${componentName}:${variant}`;
+        }
+
+        const padding = (size == 'none' ? '' : '    ');
+        const rules = pairs(byVariant).map(([variant, classes]) => {
+            if (classes.length == 0) return '';
+            return `${getRuleName(variant)} {
+    ${padding}@apply ${classes.join(' ')};
+${padding}}`;
+        }).filter(str => str != '').join('\n\n').trim();
+        return (size == 'none' ? rules : `@screen ${size} {
+    ${rules}
+}`);
+    }).filter(str => str != '').join('\n\n').trim();
 }
+exports.generateComponentClasses = generateComponentClasses;
