@@ -19,6 +19,13 @@
 				"command": "extension.openMenu",
 				"title": "Open Component Menu"
 			}
+		],
+		"keybindings": [
+			{
+				"command": "extension.openMenu",
+				"key": "alt+o",
+				"mac": "alt+o"
+			}
 		]
 	},
 	"scripts": {
