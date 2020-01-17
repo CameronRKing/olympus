@@ -43,6 +43,20 @@ module.exports = class VueParser {
     }
 
     /**
+     * Returns an array of HTML AST nodes that match the given filter
+     * Semantics are the same as posthtml.tree.match
+     * @param {Object} filter 
+     */
+    filterHAST(filter) {
+        const nodes = [];
+        cmp.tree.match(filter, node => {
+            nodes.push(node);
+            return node;
+        });
+        return nodes;
+    }
+
+    /**
      * Looks for the given option in the Vue component.
      * Returns if found.
      * Initializes with default value and returns if not.

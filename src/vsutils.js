@@ -23,7 +23,10 @@ exports.selectionFromNode = selectionFromNode;
 function wordUnderCursor(editor) {
     const cursorPos = editor.selection.active;
     const wordRange = editor.document.getWordRangeAtPosition(cursorPos);
-    return editor.document.getText(wordRange);
+    const text = editor.document.getText(wordRange);
+    // if there's no word nearby, getWordRangeAtPosition encompasses the whole document
+    // 40 is an arbitrary number to intercept this behavior
+    return (text.length > 40 ? '' : text);
 }
 exports.wordUnderCursor = wordUnderCursor;
 
