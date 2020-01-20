@@ -16,13 +16,13 @@
 	"contributes": {
 		"commands": [
 			{
-				"command": "extension.openMenu",
+				"command": "olympus.openMenu",
 				"title": "Open Component Menu"
 			}
 		],
 		"keybindings": [
 			{
-				"command": "extension.openMenu",
+				"command": "olympus.openMenu",
 				"key": "alt+o",
 				"mac": "alt+o"
 			}

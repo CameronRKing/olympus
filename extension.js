@@ -12,7 +12,7 @@ function registerCommand(context, name, cb) {
 // your extension is activated the very first time the command is executed
 const socket = require('socket.io')('4242');
 exports.activate = function activate(context) {
-	registerCommand(context, 'extension.openMenu', async () => {
+	registerCommand(context, 'olympus.openMenu', async () => {
 		const actionName = await quickSelect(actions);
 		if (!actionName) return;
 		getActionFn(actionName)(socket);
