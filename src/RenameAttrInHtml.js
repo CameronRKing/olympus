@@ -22,7 +22,6 @@ function renameInHtmlAttributes(hast, name, newName) {
             return [key, jsrc];
         });
         renamedAttrs.forEach(([key, jsrc]) => {
-            console.log(node);
             node.attrs[key] = jsrc.toSource({ quote: 'single' })
         });
         return node;

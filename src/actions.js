@@ -52,6 +52,16 @@ function genericChoose(prompt, fn, lookup) {
     });
 }
 
+function rename(prompt, lookup, fn) {
+    return actionSetup(async (editor, cmp) => {
+        const name = await getValidChoice(editor, cmp, lookup, 'Select ' + prompt + ' to rename');
+        if (name === undefined) return false;
+        const newName = await vscode.window.showInputBox({ prompt: 'Type new name', value: name });
+        cmp[fn](name, newName);
+        return cmp.toString();
+    });
+}
+
 function confirmWordUnderCursor(editor, prompt) {
     const value = wordUnderCursor(editor);
     return vscode.window.showInputBox({ value, prompt });
@@ -134,6 +144,7 @@ export default {};
     })],
     ['dc', 'deport component', genericChoose('Select component to deport', 'deportComponent', 'components')],
     ['ap', 'add prop', genericAdd('Type prop name', 'addProp')],
+    ['np', 'rename prop', rename('prop', 'props', 'renameProp')],
     ['up', 'update prop', actionSetup(async (editor, cmp) => {
         const toUpdate = await getValidChoice(editor, cmp, 'props', 'Select prop to update');
 
@@ -185,6 +196,7 @@ export default {};
         editor.selection = selectionFromNode(dataValue);
         return false;
     })],
+    ['nd', 'rename data', rename('data', 'data', 'renameData')],
     ['ud', 'update data', actionSetup(async (editor, cmp) => {
         const toUpdate = await getValidChoice(editor, cmp, 'data', 'Select data to update');
         const dataValueNode = cmp.data()[toUpdate];
@@ -193,6 +205,7 @@ export default {};
     })],
     ['rd', 'remove data', genericChoose('Select data to remove', 'removeData', 'data')],
     ['aw', 'add watcher', genericAdd('Type watcher name', 'addWatcher')],
+    ['nw', 'rename watcher', rename('watcher', 'watchers', 'renameWatcher')],
     ['uw', 'update watcher', actionSetup(async (editor, cmp) => {
         const toUpdate = await getValidChoice(editor, cmp, 'watchers', 'Select watcher to update');
         const watcherNode = cmp.watchers()[toUpdate];
@@ -216,10 +229,12 @@ export default {};
     })],
     ['rw', 'remove watcher', genericChoose('Select watcher to remove', 'removeWatcher', 'watchers')],
     ['ac', 'add computed', genericAdd('Type computed name', 'addComputed')],
+    ['nc', 'rename computed', rename('computed', 'computed', 'renameComputed')],
     ['asc', 'add setter to computed', genericChoose('Select computed to add setter to', 'addComputedSetter', 'computed')],
     ['rsc', 'remove setter from computed', genericChoose('Select computed to remove setter from', 'removeComputedSetter', 'computed')],
     ['rc', 'remove computed', genericChoose('Select computed to remove', 'removeComputed', 'computed')],
     ['am', 'add method', genericAdd('Type method name', 'addMethod')],
+    ['nm', 'rename method', rename('method', 'methods', 'renameMethod')],
     ['rm', 'remove method', genericChoose('Select method to remove', 'removeMethod', 'methods')],
     ['et', 'edit tailwind classes', actionSetup(async (editor, cmp) => {
         const nodeToEdit = getTagNodeBeforeCursor(editor, cmp);
