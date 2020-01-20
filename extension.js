@@ -15,7 +15,7 @@ exports.activate = function activate(context) {
 	registerCommand(context, 'extension.openMenu', async () => {
 		const actionName = await quickSelect(actions);
 		if (!actionName) return;
-		getActionFn(actionName)();
+		getActionFn(actionName)(socket);
 	});
 }
 

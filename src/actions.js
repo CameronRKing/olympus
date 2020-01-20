@@ -7,7 +7,7 @@ const {
     selectionFromNode
 } = require('./vsutils');
 const { shortcutToClass, classToShortcut, allClasses,
-    getPatch, classToFamily, familyToClasses,
+    getTailwindClassPatch, classToFamily, familyToClasses,
     generateComponentClasses } = require('./TailwindEditor');
 const j = require('jscodeshift');
 const fs = require('fs').promises;
@@ -19,8 +19,10 @@ async function getCmp(editor) {
     return cmp;
 }
 
+let socket;
 function actionSetup(cb) {
-    return async () => {
+    return async (sock) => {
+        socket = sock;
         const editor = vscode.window.activeTextEditor;
         if (!editor) return;
         const cmp = await getCmp(editor);
@@ -272,12 +274,8 @@ export default {};
         return cmp.toString();
     })],
     ['ri', 'remove olympus ids', actionSetup(async (editor, cmp) => {
-        cmp.tree.walk(node => {
-            if (node.attrs && node.attrs['data-olympus']) {
-                node.attrs['data-olympus'] = undefined;
-            }
-            return node;
-        });
+        cmp.filterHAST({ attrs: { 'data-olympus': /.*/ } })
+            .forEach(node => node.attrs['data-olympus'] = undefined);
         return cmp.toString();
     })]
 ];
@@ -288,6 +286,63 @@ function tailwindEdit(editor, cmp, node) {
 
     let classList = node.attrs.class.split(' ').filter(str => str != '');
 
+    const picker = setupTailwindQuickPick();
+
+    let justNavigated = false;
+    picker.onDidChangeValue(value => {
+        const [variants, shortcut, suffix] = parseTailwindValue(value);
+        if (suffix == ' ') {
+            // since the class was just applied, treat the space as "done with this class" rather than "toggle it"
+            if (justNavigated) {
+                picker.value = '';
+                justNavigated = false;
+                return;
+            }
+            const cclass = shortcutToClass[shortcut];
+            let patch;
+            if (cclass) patch = patchClasses(variants, cclass);
+            else patch = patchClasses(variants, shortcut);
+            update(patch);
+            picker.value = '';
+        } else if ((shortcutToClass[shortcut] || allClasses.includes(shortcut)) && ['j', 'k'].includes(suffix)) {
+            const nextClass = navigateToNextTailwindClass(shortcut, suffix);
+            const patch = patchClasses(variants, nextClass);
+            update(patch);
+            picker.value = (variants ? variants + ':' : '') + (classToShortcut[nextClass] || nextClass);
+            justNavigated = true;
+        }
+    });
+
+    picker.onDidChangeSelection(selection => {
+        const newSelection = selection.slice(-1)[0];
+        if (newSelection === undefined) return;
+        const cclass = newSelection.detail;
+        const patch = patchClasses('', cclass);
+        update(patch);
+    });
+
+    picker.show();
+
+    const patchClasses = (variants, cclass) => {
+        const patch = getTailwindClassPatch(classList, cclass, variants);
+        if (patch.remove) remove(classList, patch.remove);
+        if (patch.add) classList.push(patch.add);
+        return patch;
+    };
+
+    const update = (patch) => {
+        if (socket) socket.emit('edit-class', { id: node.attrs['data-olympus'], patch });
+
+        node.attrs.class = classList.join(' ');
+        if (node.attrs.class == '') node.attrs.class = undefined;
+        replaceEditorContent(editor, cmp.toString());
+    };
+}
+
+/**
+ * Initializes a QuickPick with all known Tailwind classes matched to shortcut and properties affected
+ */
+function setupTailwindQuickPick() {
     const picker = vscode.window.createQuickPick();
     const classesWithShortcuts = pairs(shortcutToClass).map(([shortcut, cclass]) => ({
         label: shortcut,
@@ -303,53 +358,29 @@ function tailwindEdit(editor, cmp, node) {
     picker.items = classesWithShortcuts.concat(classesWithoutShortcuts);
     picker.matchOnDetail = true;
     picker.matchOnDescription = true;
+    return picker;
+}
 
-    let justNavigated = false;
-    picker.onDidChangeValue(value => {
-        const suffix = value[value.length - 1];
-        const shortcut = value.slice(0, -1).split(':').slice(-1)[0];
-        const variants = value.split(':').slice(0, -1).join(':');
-        if (suffix == ' ') {
-            if (justNavigated) {
-                picker.value = '';
-                justNavigated = false;
-                return;
-            }
-            const cclass = shortcutToClass[shortcut];
-            if (cclass) patchClasses(variants, cclass);
-            else (patchClasses(variants, value.trim()));
-            picker.value = '';
-        } else if ((shortcutToClass[shortcut] || allClasses.includes(shortcut)) && ['j', 'k'].includes(suffix)) {
-            // there's a chance of this logic going awry, but I think the chances are low enough to risk it
-            // (consider would would happen if we had shortcuts df and dfjr)
-            const currClass = shortcutToClass[shortcut] || shortcut;
-            let nextClass;
-            const siblings = (cclass) => familyToClasses[classToFamily[cclass]];
+/**
+ * Pulls the variants, shortcut/class, and the last character out of the value
+ * @param {String} value 
+ */
+function parseTailwindValue(value) {
+    const suffix = value[value.length - 1];
+    const shortcut = value.slice(0, -1).split(':').slice(-1)[0];
+    const variants = value.split(':').slice(0, -1).join(':');
+    return [variants, shortcut, suffix];
+}
 
-            if (suffix == 'j') nextClass = prev(siblings(currClass), currClass);
-            if (suffix == 'k') nextClass = next(siblings(currClass), currClass);
-
-            patchClasses(variants, nextClass);
-            picker.value = (variants ? variants + ':' : '') + (classToShortcut[nextClass] || nextClass);
-            justNavigated = true;
-        }
-    });
-    picker.show();
-
-    const patchClasses = (variants, cclass) => {
-        const patch = getPatch(classList, cclass, variants);
-        if (patch.remove) remove(classList, patch.remove);
-        if (patch.add) classList.push(patch.add);
-        update(patch);
-    };
-
-    const update = (patch) => {
-        if (socket) socket.emit('edit-class', { id: node.attrs['data-olympus'], patch });
-
-        node.attrs.class = classList.join(' ');
-        if (node.attrs.class == '') node.attrs.class = undefined;
-        replaceEditorContent(editor, cmp.toString());
-    };
+function navigateToNextTailwindClass(shortcut, suffix) {
+    const currClass = shortcutToClass[shortcut] || shortcut;
+    const siblings = (cclass) => familyToClasses[classToFamily[cclass]];
+    
+    // there's a chance of this logic going awry, but I think the chances are low enough to risk it
+    // (consider would would happen if we had shortcuts df and dfjr)
+    if (suffix == 'j') return prev(siblings(currClass), currClass);
+    if (suffix == 'k') return next(siblings(currClass), currClass);
+    throw new Exception('Suffix ' + suffix + ' not recognized! Valid values are "j" and "k".');
 }
 
 exports.actions = actions;

@@ -49,7 +49,7 @@ module.exports = class VueParser {
      */
     filterHAST(filter) {
         const nodes = [];
-        cmp.tree.match(filter, node => {
+        this.tree.match(filter, node => {
             nodes.push(node);
             return node;
         });

@@ -71,6 +71,11 @@ function quickSelect(shortcuts, { canSelectMany=false, selectedItems=[] }={}) {
                 else picker.value = '';
             }
         });
+
+        picker.onDidChangeSelection(selected => {
+            if (selected.length > 0 && !canSelectMany) picker.hide();
+        });
+
         picker.onDidHide(() => {
             if (canSelectMany) resolve(picker.selectedItems.map(item => item.detail));
             else resolve(picker.selectedItems.length ? picker.selectedItems[0].detail : null);

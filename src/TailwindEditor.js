@@ -16,7 +16,16 @@ exports.classToShortcut = classToShortcut;
 const allClasses = Object.values(families).reduce((acc, arr) => acc.concat(arr), []);
 exports.allClasses = allClasses;
 
-function getPatch(classList, givenClass, variants) {
+/**
+ * Determines which classes should be removed and/or added.
+ * 1) If the class is already on the list, it is removed
+ * 2) If a sibling of the class is on the list, the sibling is removed and the new class added
+ * 3) Else the class is simply added
+ * @param {Array<String>} classList 
+ * @param {String} givenClass 
+ * @param {String} variants 
+ */
+function getTailwindClassPatch(classList, givenClass, variants) {
     // if it's already there, remove it
     const fullClass = (variants ? variants + ':' : '') + givenClass;
     if (classList.includes(fullClass)) {
@@ -40,7 +49,7 @@ function getPatch(classList, givenClass, variants) {
         }
     }
 }
-exports.getPatch = getPatch;
+exports.getTailwindClassPatch = getTailwindClassPatch;
 
 function generateComponentClasses(classList, componentName) {
     const bySize = { none: [], sm: [], md: [], lg: [], xl: [] };
@@ -81,6 +90,7 @@ function generateComponentClasses(classList, componentName) {
         const padding = (size == 'none' ? '' : '    ');
         const rules = pairs(byVariant).map(([variant, classes]) => {
             if (classes.length == 0) return '';
+            
             return `${getRuleName(variant)} {
     ${padding}@apply ${classes.join(' ')};
 ${padding}}`;
