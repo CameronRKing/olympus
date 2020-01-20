@@ -3,6 +3,8 @@ const posthtml = require('posthtml');
 const { render } = require('./htmlrender');
 const { findObjProp, toSource, getDefaultExport, objProp, addToTop, parse, object } = require('./node-utils');
 const { mapWithKeys, pairs } = require('./utils');
+const renameThisAttr = require('./RenameThisAttr');
+const renameAttrInHtml = require('./RenameAttrInHtml');
 
 function emptyFunc() {
     return j.functionExpression(null, [], j.blockStatement([]));
@@ -108,6 +110,16 @@ module.exports = class VueParser {
     }
 
     /**
+     * Looks for references to the given attribute in the script and the HTML and renames them.
+     * @param {String} name 
+     * @param {String} newName 
+     */
+    renameAttribute(name, newName) {
+        renameThisAttr(this.script, name, newName);
+        renameAttrInHtml(this.tree, name, newName);
+    }
+
+    /**
      * Given a component path relative to the project root,
      * imports that component.
      * @param {String} path 
@@ -152,6 +164,16 @@ module.exports = class VueParser {
         } else {
             props.value.properties.push(objProp(name, object()));
         }
+    }
+
+    renameProp(name, newName) {
+        const props = this.option('props').get().value;
+        if (props.value.type == 'ArrayExpression') {
+            props.value.elements.filter(el => el.value == name)[0].value = newName;
+        } else {
+            props.value.properties.filter(prop => prop.key.name == name)[0].key.name = newName;
+        }
+        this.renameAttribute(name, newName);
     }
 
     /**
@@ -218,6 +240,16 @@ module.exports = class VueParser {
             .get().value.properties.push(objProp(name, parse(val).expression));
     }
 
+    renameData(name, newName) {
+        this.option('data')
+            .find(j.ReturnStatement)
+            .find(j.Property, { key: { name } })
+            .get().value
+            .key.name = newName;
+
+        this.renameAttribute(name, newName);
+    }
+
     /**
      * Returns an object like the component's data, but the values are replaced by their AST nodes
      */
@@ -250,6 +282,12 @@ module.exports = class VueParser {
             j.blockStatement([])
         ), { method: true });
         watchers.get().value.value.properties.push(watcher);
+    }
+
+    renameWatcher(name, newName) {
+        this.option('watch').find(j.Property, { key: { name } })
+            .get().value
+            .key.name = newName;
     }
 
     /**
@@ -302,6 +340,15 @@ module.exports = class VueParser {
             .push(objProp(name, emptyFunc(), { method: true }));
     }
 
+    renameComputed(name, newName) {
+        this.option('computed')
+            .find(j.Property, { key: { name } })
+            .get().value
+            .key.name = newName;
+
+        this.renameAttribute(name, newName);
+    }
+    
     /**
      * Returns an object where key is the computed name and value is the corresponding function/object AST node
      */
@@ -345,6 +392,14 @@ module.exports = class VueParser {
             .get().value
             .value.properties
             .push(objProp(name, emptyFunc(), { method: true }));
+    }
+
+    renameMethod(name, newName) {
+        this.option('methods')
+            .find(j.Property, { key: { name } })
+            .get().value
+            .key.name = newName;
+        this.renameAttribute(name, newName);
     }
 
     /**

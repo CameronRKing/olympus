@@ -59,6 +59,81 @@ export default {
 </script>`)
         });
 
+        it('renames props', async () => {
+            // definition
+            const cmp = new VueParser(`<script>
+export default {
+    props: ['foo'],
+    methods: {
+        usesFoo() {
+            console.log(this.foo);
+            this['foo'] = 1;
+            const { foo } = this;
+        },
+        doesntUseFoo() {
+            const foo = 'foo';
+        }
+    }
+}</script>
+
+<template>
+<div attr="foo" :class="foo" @click="() => console.log(foo)"></div>
+</template>`)
+            await cmp.ready();
+            cmp.renameProp('foo', 'bar');
+            expect(cmp.toString()).to.equal(`<script>
+export default {
+    props: ['bar'],
+    methods: {
+        usesFoo() {
+            console.log(this.bar);
+            this['bar'] = 1;
+            const { bar: foo } = this;
+        },
+        doesntUseFoo() {
+            const foo = 'foo';
+        }
+    }
+}</script>
+
+<template>
+<div
+    attr="foo"
+    :class="bar"
+    @click="() => console.log(bar)"
+></div>
+</template>`);
+
+            cmp.updateProp('bar', { default: 'true' });
+            cmp.renameProp('bar', 'baz');
+            expect(cmp.toString()).to.equal(`<script>
+export default {
+    props: {
+        baz: {
+            default: true
+        }
+    },
+    methods: {
+        usesFoo() {
+            console.log(this.baz);
+            this['baz'] = 1;
+            const { baz: foo } = this;
+        },
+        doesntUseFoo() {
+            const foo = 'foo';
+        }
+    }
+}</script>
+
+<template>
+<div
+    attr="foo"
+    :class="baz"
+    @click="() => console.log(baz)"
+></div>
+</template>`)
+        });
+
         it('updates required/default/type/validator', () => {
             asts.addProp('foo');
             asts.updateProp('foo', {
@@ -117,6 +192,63 @@ export default {
 </script>`);
         });
 
+        it('renames data', async () => {
+            const cmp = new VueParser(`<script>
+export default {
+    data() {
+        return {
+            foo: true
+        };
+    },
+    methods: {
+        usesFoo() {
+            console.log(this.foo);
+            this['foo'] = 1;
+            const { foo } = this;
+        },
+        doesntUseFoo() {
+            const foo = 'foo';
+        }
+    }
+}</script>
+
+<template>
+<div
+    attr="foo"
+    :class="foo"
+    @click="() => console.log(foo)"
+></div>
+</template>`);
+            await cmp.ready();
+            cmp.renameData('foo', 'bar');
+            expect(cmp.toString()).to.equal(`<script>
+export default {
+    data() {
+        return {
+            bar: true
+        };
+    },
+    methods: {
+        usesFoo() {
+            console.log(this.bar);
+            this['bar'] = 1;
+            const { bar: foo } = this;
+        },
+        doesntUseFoo() {
+            const foo = 'foo';
+        }
+    }
+}</script>
+
+<template>
+<div
+    attr="foo"
+    :class="bar"
+    @click="() => console.log(bar)"
+></div>
+</template>`)
+        })
+
         it('sets data', () => {
             asts.addData('bar', `'initial-value'`);
             asts.setData('bar', `'new-value'`);
@@ -147,6 +279,31 @@ export default {}
 export default {
     watch: {
         foo(newVal, oldVal) {}
+    }
+};
+</script>`)
+        });
+
+        it('renames watchers', () => {
+            asts.addWatcher('foo');
+            asts.renameWatcher('foo', 'bar');
+            expect(asts.toString()).to.equal(`<script>
+export default {
+    watch: {
+        bar(newVal, oldVal) {}
+    }
+};
+</script>`);
+
+            asts.updateWatcher('bar', { deep: true });
+            asts.renameWatcher('bar', 'baz');
+            expect(asts.toString()).to.equal(`<script>
+export default {
+    watch: {
+        baz: {
+            handler(newVal, oldVal) {},
+            deep: true
+        }
     }
 };
 </script>`)
@@ -205,6 +362,46 @@ export default {
 </script>`);
         });
 
+        it('renames computed', async () => {
+            const cmp = new VueParser(`<script>
+export default {
+    computed: {
+        foo() {}
+    },
+    methods: {
+        usesFoo() {
+            console.log(this.foo);
+        }
+    }
+};
+</script>
+
+<template>
+<div :class="foo" attr="foo">{{ foo }}</div>
+</template>`);
+            await cmp.ready();
+            cmp.renameComputed('foo', 'bar');
+            expect(cmp.toString()).to.equal(`<script>
+export default {
+    computed: {
+        bar() {}
+    },
+    methods: {
+        usesFoo() {
+            console.log(this.bar);
+        }
+    }
+};
+</script>
+
+<template>
+<div
+    :class="bar"
+    attr="foo"
+>{{ bar }}</div>
+</template>`)
+        });
+
         it('updates setter', () => {
             asts.addComputed('foo');
             asts.addComputedSetter('foo');
@@ -257,6 +454,41 @@ export default {
     }
 };
 </script>`);
+        });
+
+        it('renames methods', () => {
+            it('renames computed', async () => {
+                const cmp = new VueParser(`<script>
+export default {
+    methods: {
+        foo() {},
+        usesFoo() {
+            console.log(this.foo());
+        }
+    }
+};
+</script>
+
+<template>
+<div @click="foo" attr="foo">{{ foo() }}</div>
+</template>`);
+                await cmp.ready();
+                cmp.renameMethod('foo', 'bar');
+                expect(cmp.toString()).to.equal(`<script>
+export default {
+    methods: {
+        bar() {},
+        usesFoo() {
+            console.log(this.bar());
+        }
+    }
+};
+</script>
+
+<template>
+<div @click="bar" attr="foo">{{ bar() }}</div>
+</template>`)
+            });
         });
 
         it('removes methods', () => {
