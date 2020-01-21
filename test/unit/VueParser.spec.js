@@ -508,13 +508,13 @@ export default {}
 </script>
 
 <template>
-<div>
+<div class="my-class" v-if="true">
     <span>I am the slot contents</span>
 </div>
 </template>`);
             await cmp.ready();
             const node = cmp.filterHAST({ tag: 'div' })[0];
-            const newCmp = await cmp.refactorIntoComponent(node, 'src/MyDiv.vue');
+            const newCmp = await cmp.refactorIntoComponent(node, 'src/MyDiv.vue', ['class']);
             expect(cmp.toString()).to.equal(`<script>
 import MyDiv from '@/MyDiv.vue';
 export default {
@@ -525,7 +525,7 @@ export default {
 </script>
 
 <template>
-<MyDiv>
+<MyDiv v-if="true">
     <span>I am the slot contents</span>
 </MyDiv>
 </template>`);
@@ -534,7 +534,7 @@ export default {}
 </script>
 
 <template>
-<div>
+<div class="my-class">
     <slot></slot>
 </div>
 </template>`);

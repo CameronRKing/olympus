@@ -414,8 +414,10 @@ module.exports = class VueParser {
         this.removeFromOption('methods', name);
     }
 
-    async refactorIntoComponent(htmlNode, cmpPath) {
-        const newTag = { tag: htmlNode.tag, attrs: htmlNode.attrs, content: ['\n    ', {tag: 'slot' }, '\n'] };
+    async refactorIntoComponent(htmlNode, cmpPath, attrs=[]) {
+        const newAttrs = mapWithKeys(attrs, key => [key, htmlNode.attrs[key]]);
+        attrs.forEach(key => delete htmlNode.attrs[key]);
+        const newTag = { tag: htmlNode.tag, attrs: newAttrs, content: ['\n    ', {tag: 'slot' }, '\n'] };
         const cmpName = cmpPath.split('/').slice(-1)[0].split('.')[0];
         htmlNode.tag = cmpName;
         this.importComponent(cmpPath);
