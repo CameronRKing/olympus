@@ -500,4 +500,44 @@ export default {}
 </script>`);
         });
     });
+
+    describe('component refactoring', () => {
+        it('creates new components', async () => {
+            const cmp = new VueParser(`<script>
+export default {}
+</script>
+
+<template>
+<div>
+    <span>I am the slot contents</span>
+</div>
+</template>`);
+            await cmp.ready();
+            const node = cmp.filterHAST({ tag: 'div' })[0];
+            const newCmp = await cmp.refactorIntoComponent(node, 'src/MyDiv.vue');
+            expect(cmp.toString()).to.equal(`<script>
+import MyDiv from '@/MyDiv.vue';
+export default {
+    components: {
+        MyDiv
+    }
+};
+</script>
+
+<template>
+<MyDiv>
+    <span>I am the slot contents</span>
+</MyDiv>
+</template>`);
+            expect(newCmp.toString()).to.equal(`<script>
+export default {}
+</script>
+
+<template>
+<div>
+    <slot></slot>
+</div>
+</template>`);
+        });
+    });
 });

@@ -414,6 +414,21 @@ module.exports = class VueParser {
         this.removeFromOption('methods', name);
     }
 
+    async refactorIntoComponent(htmlNode, cmpPath) {
+        const newTag = { tag: htmlNode.tag, attrs: htmlNode.attrs, content: ['\n    ', {tag: 'slot' }, '\n'] };
+        const cmpName = cmpPath.split('/').slice(-1)[0].split('.')[0];
+        htmlNode.tag = cmpName;
+        this.importComponent(cmpPath);
+        const newCmp = new VueParser(`<script>
+export default {}
+</script>
+
+<template></template>`);
+        await newCmp.ready();
+        newCmp.tree[2].content = ['\n', newTag, '\n'];
+        return newCmp;
+    }
+
     toString() {
         this.tree.match({ tag: 'script' }, node => {
             node.content = [toSource(this.script)];
