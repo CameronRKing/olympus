@@ -456,9 +456,8 @@ export default {
 </script>`);
         });
 
-        it('renames methods', () => {
-            it('renames computed', async () => {
-                const cmp = new VueParser(`<script>
+        it('renames methods', async () => {
+            const cmp = new VueParser(`<script>
 export default {
     methods: {
         foo() {},
@@ -472,9 +471,9 @@ export default {
 <template>
 <div @click="foo" attr="foo">{{ foo() }}</div>
 </template>`);
-                await cmp.ready();
-                cmp.renameMethod('foo', 'bar');
-                expect(cmp.toString()).to.equal(`<script>
+            await cmp.ready();
+            cmp.renameMethod('foo', 'bar');
+            expect(cmp.toString()).to.equal(`<script>
 export default {
     methods: {
         bar() {},
@@ -486,9 +485,11 @@ export default {
 </script>
 
 <template>
-<div @click="bar" attr="foo">{{ bar() }}</div>
+<div
+    @click="bar"
+    attr="foo"
+>{{ bar() }}</div>
 </template>`)
-            });
         });
 
         it('removes methods', () => {
