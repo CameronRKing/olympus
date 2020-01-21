@@ -539,5 +539,190 @@ export default {}
 </div>
 </template>`);
         });
+
+
+        it('pushes HTML above a slot', async () => {
+            const cmp = new VueParser(`<script>
+export default {}
+</script>
+
+<template>
+<MyDiv>
+    <span>This will be pushed into the component.</span>
+    <p>This won't be pushed into the component.</p>
+</MyDiv>
+</template>`);
+            await cmp.ready();
+            const hostCmp = new VueParser(`<script>
+export default {}
+</script>
+
+<template>
+<div>
+    <slot></slot>
+</div>
+</template>`);
+            await hostCmp.ready();
+            const node = cmp.filterHAST({ tag: 'span' })[0];
+
+            cmp.pushAboveSlot(node, hostCmp);
+
+            expect(cmp.toString()).to.equal(`<script>
+export default {}
+</script>
+
+<template>
+<MyDiv>
+    <p>This won't be pushed into the component.</p>
+</MyDiv>
+</template>`);
+            expect(hostCmp.toString()).to.equal(`<script>
+export default {}
+</script>
+
+<template>
+<div>
+    <span>This will be pushed into the component.</span>
+    <slot></slot>
+</div>
+</template>`);
+        });
+
+        it('pushes HTML below a slot', async () => {
+            const cmp = new VueParser(`<script>
+export default {}
+</script>
+
+<template>
+<MyDiv>
+    <span>This will be pushed into the component.</span>
+    <p>This won't be pushed into the component.</p>
+</MyDiv>
+</template>`);
+            await cmp.ready();
+            const hostCmp = new VueParser(`<script>
+export default {}
+</script>
+
+<template>
+<div>
+    <slot></slot>
+</div>
+</template>`);
+            await hostCmp.ready();
+            const node = cmp.filterHAST({ tag: 'span' })[0];
+
+            cmp.pushBelowSlot(node, hostCmp);
+
+            expect(cmp.toString()).to.equal(`<script>
+export default {}
+</script>
+
+<template>
+<MyDiv>
+    <p>This won't be pushed into the component.</p>
+</MyDiv>
+</template>`);
+            expect(hostCmp.toString()).to.equal(`<script>
+export default {}
+</script>
+
+<template>
+<div>
+    <slot></slot>
+    <span>This will be pushed into the component.</span>
+</div>
+</template>`);
+        });
+
+        it('pushes HTML around (wrapping) a slot', async () => {
+            const cmp = new VueParser(`<script>
+export default {}
+</script>
+
+<template>
+<MyDiv>
+    <span class="ill-be-taken">I'll be left behind.</span>
+</MyDiv>
+</template>`);
+            await cmp.ready();
+            const hostCmp = new VueParser(`<script>
+export default {}
+</script>
+
+<template>
+<div>
+    <slot></slot>
+</div>
+</template>`);
+            await hostCmp.ready();
+            const node = cmp.filterHAST({ tag: 'span' })[0];
+
+            cmp.pushAroundSlot(node, hostCmp);
+
+            expect(cmp.toString()).to.equal(`<script>
+export default {}
+</script>
+
+<template>
+<MyDiv>
+    I'll be left behind.
+</MyDiv>
+</template>`);
+            expect(hostCmp.toString()).to.equal(`<script>
+export default {}
+</script>
+
+<template>
+<div>
+    <span class="ill-be-taken"><slot></slot></span>
+</div>
+</template>`);
+        });
+
+        it('renames a slot', async () => {
+
+        });
+
+        it('adds a slot', async () => {
+
+        });
+
+        it('pushes HTML from one slot to another', async () => {
+            
+        });
+
+        it('pushes HTML into a new slot', async () => {
+
+        });
+
+        it('removes a slot', async () => {
+
+        });
+
+        it('merges two slots', async () => {
+
+        });
+
+        it('pushes components', async () => {
+
+        });
+
+        it('pushes data', async () => {
+
+        });
+
+        it('pushes computed', async () => {
+            
+        });
+        
+        it('pushes watchers', () => {
+            
+        });
+        
+        it('pushes methods', async () => {
+
+        });
+
     });
 });

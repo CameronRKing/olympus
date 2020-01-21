@@ -17,6 +17,7 @@ module.exports = class VueParser {
                 this.results = results;
                 this.tree = results.tree;
                 this.script = undefined;
+                this.addParentsToHtmlTree();
                 results.tree.match({ tag: 'script' }, node => {
                     this.scriptNode = node;
                     // node.content may be an array of strings instead of one string
@@ -42,6 +43,16 @@ module.exports = class VueParser {
 
     ready() {
         return this.isDone;
+    }
+
+    addParentsToHtmlTree() {
+        this.tree.walk(node => {
+            if (!node.content) return node;
+            node.content.forEach(child => {
+                if (typeof child == 'object') child.parent = node;
+            });
+            return node;
+        });
     }
 
     /**
@@ -437,5 +448,84 @@ export default {}
             return node;
         });
         return this.results.html;
+    }
+
+    pushAboveSlot(htmlNode, hostCmp) {
+        const hostSlot = this.findHostSlot(htmlNode, hostCmp);
+        const copiedNode = { ...htmlNode };
+        hostCmp.insertBefore(copiedNode, hostSlot);
+        this.removeNode(htmlNode);
+    }
+
+    pushBelowSlot(htmlNode, hostCmp) {
+        const hostSlot = this.findHostSlot(htmlNode, hostCmp);
+        const copiedNode = { ...htmlNode };
+        hostCmp.insertAfter(copiedNode, hostSlot);
+        this.removeNode(htmlNode);
+    }
+
+    pushAroundSlot(htmlNode, hostCmp) {
+        const hostSlot = this.findHostSlot(htmlNode, hostCmp);
+        const copiedNode = { ...htmlNode };
+        copiedNode.content = [hostSlot];
+        hostCmp.replaceNode(hostSlot, copiedNode);
+        // remove the tag, but splice its contents into its parents'
+        htmlNode.tag = false;
+        const idx = htmlNode.parent.content.indexOf(htmlNode);
+        htmlNode.parent.content.splice(idx, 1, ...htmlNode.content);
+    }
+
+    findHostSlot(htmlNode, hostCmp) {
+        let parent;
+        do {
+            parent = htmlNode.parent;
+        } while (!(parent.tag.match(/[A-Z]/) || parent.tag == 'slot'));
+
+        // assume node is in the default slot by default
+        let filter = { tag: 'slot' };
+        if (parent.tag === 'slot') {
+            filter.attrs = { name: parent.attrs.name };
+        }
+        return hostCmp.filterHAST(filter)[0];
+    }
+
+    removeNode(node) {
+        const idx = node.parent.content.indexOf(node);
+        if (idx != 0) {
+            // clean up whitespace before node
+            node.parent.content[idx - 1] = node.parent.content[idx - 1].trimRight();
+        }
+        // remove node && children from source
+        node.tag = false;
+        node.content = undefined;
+    }
+
+    replaceNode(targetNode, replacement) {
+        const idx = targetNode.parent.content.indexOf(targetNode);
+        targetNode.parent.content.splice(idx, 1, replacement);
+        replacement.parent = targetNode.parent;
+    }
+
+    insertBefore(insertedNode, targetNode) {
+        const idx = targetNode.parent.content.indexOf(targetNode);
+        const whitespace = this.findWhitespace(targetNode.parent);
+        targetNode.parent.content.splice(idx, 0, insertedNode, whitespace);
+    }
+    
+    /**
+     * Looks for a whitespace-only string in the given node's content.
+     * Convenience method for preserving styling when adding nodes.
+     * @param {*} node 
+     */
+    findWhitespace(node) {
+        const whitespace = node.content.filter(str => typeof str == 'string' && str.match(/^\s+$/));
+        if (whitespace.length) return whitespace[0];
+        else return '\n    '; // reasonable default
+    }
+
+    insertAfter(insertedNode, targetNode) {
+        const idx = targetNode.parent.content.indexOf(targetNode);
+        const whitespace = this.findWhitespace(targetNode.parent);
+        targetNode.parent.content.splice(idx + 1, 0, whitespace, insertedNode);
     }
 }
