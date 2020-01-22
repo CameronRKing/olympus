@@ -286,13 +286,15 @@ module.exports = class VueParser {
         }
     }
 
-    addWatcher(name) {
-        const watchers = this.option('watch');
-        const watcher = objProp(name, j.functionExpression(null,
-            [j.identifier('newVal'), j.identifier('oldVal')],
-            j.blockStatement([])
-        ), { method: true });
-        watchers.get().value.value.properties.push(watcher);
+    addWatcher(name, node=null) {
+        if (node === null) {
+            node = j.functionExpression(null,
+                [j.identifier('newVal'), j.identifier('oldVal')],
+                j.blockStatement([])
+            );
+        }
+        const watcher = objProp(name, node, { method: true });
+        this.option('watch').get().value.value.properties.push(watcher);
     }
 
     renameWatcher(name, newName) {
@@ -344,11 +346,13 @@ module.exports = class VueParser {
         this.removeFromOption('watch', name);
     }
 
-    addComputed(name) {
+    addComputed(name, node=null) {
+        if (node === null) node = emptyFunc();
+
         this.option('computed')
             .get().value
             .value.properties
-            .push(objProp(name, emptyFunc(), { method: true }));
+            .push(objProp(name, node, { method: true }));
     }
 
     renameComputed(name, newName) {
@@ -398,11 +402,13 @@ module.exports = class VueParser {
         this.removeFromOption('computed', name);
     }
 
-    addMethod(name) {
+    addMethod(name, node=null) {
+        if (node === null) node = emptyFunc();
+
         this.option('methods')
             .get().value
             .value.properties
-            .push(objProp(name, emptyFunc(), { method: true }));
+            .push(objProp(name, node, { method: true }));
     }
 
     renameMethod(name, newName) {
@@ -575,5 +581,55 @@ export default {}
     append(node, parent) {
         const target = parent.content.filter(node => typeof node == 'object').slice(-1)[0];
         this.insertAfter(node, target);
+    }
+
+    pushComponent(cmpName, hostCmp) {
+        const path = this.script.find(j.ImportDefaultSpecifier, { local: { name: cmpName } })
+            .closest(j.ImportDeclaration)
+            .get().value
+            .source.value;
+        
+        this.deportComponent(cmpName);
+        hostCmp.importComponent(path);
+    }
+
+    pushData(data, hostCmp) {
+        if (typeof data == 'string') data = [data];
+
+        data.forEach(name => {
+            const stringifiedValue = j(this.data()[name]).toSource({ quote: 'single' });
+            this.removeData(name);
+            hostCmp.addData(name, stringifiedValue);
+        });
+    }
+
+    pushComputed(computed, hostCmp) {
+        if (typeof computed == 'string') computed = [computed];
+        
+        computed.forEach(name => {
+            const node = this.computed()[name];
+            this.removeComputed(name);
+            hostCmp.addComputed(name, node);
+        });
+    }
+
+    pushWatcher(watcher, hostCmp) {
+        if (typeof watcher == 'string') watcher = [watcher];
+
+        watcher.forEach(name => {
+            const node = this.watchers()[name];
+            this.removeWatcher(name);
+            hostCmp.addWatcher(name, node);
+        })
+    }
+
+    pushMethod(method, hostCmp) {
+        if (typeof method == 'string') method = [method];
+
+        method.forEach(name => {
+            const node = this.methods()[name];
+            this.removeMethod(name);
+            hostCmp.addMethod(name, node);
+        })
     }
 }

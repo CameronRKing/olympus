@@ -783,29 +783,185 @@ export default {}
             
         });
 
-        it('merges two slots', async () => {
-            // is this one necessary?
-        });
-
         it('pushes components', async () => {
+            const donor = new VueParser(`<script>
+import MyDiv from '@/MyDiv.vue';
+export default {
+    components: {
+        MyDiv
+    }
+};
+</script>`);
+            await donor.ready();
 
+            const host = new VueParser(`<script>
+export default {}
+</script>`);
+            await host.ready();
+
+            donor.pushComponent('MyDiv', host);
+
+            expect(donor.toString()).to.equal(`<script>
+export default {};
+</script>`);
+            expect(host.toString()).to.equal(`<script>
+import MyDiv from '@/MyDiv.vue';
+export default {
+    components: {
+        MyDiv
+    }
+};
+</script>`);
         });
 
         it('pushes data', async () => {
+            const donor = new VueParser(`<script>
+export default {
+    data() {
+        return {
+            foo: 'foo',
+            bar: 'bar',
+            baz: 'baz'
+        };
+    }
+};
+</script>`);
+            await donor.ready();
 
+            const host = new VueParser(`<script>
+export default {}
+</script>`);
+            await host.ready();
+
+            donor.pushData('foo', host);
+
+            expect(donor.toString()).to.equal(`<script>
+export default {
+    data() {
+        return {
+            bar: 'bar',
+            baz: 'baz'
+        };
+    }
+};
+</script>`);
+            expect(host.toString()).to.equal(`<script>
+export default {
+    data() {
+        return {
+            foo: 'foo'
+        };
+    }
+};
+</script>`);
+
+            donor.pushData(['bar', 'baz'], host);
+
+            expect(donor.toString()).to.equal(`<script>
+export default {};
+</script>`);
+            expect(host.toString()).to.equal(`<script>
+export default {
+    data() {
+        return {
+            foo: 'foo',
+            bar: 'bar',
+            baz: 'baz'
+        };
+    }
+};
+</script>`)
         });
 
         it('pushes computed', async () => {
-            
+            const donor = new VueParser(`<script>
+export default {
+    computed: {
+        foo() { return 42; }
+    }
+};
+</script>`);
+            await donor.ready();
+
+            const host = new VueParser(`<script>
+export default {}
+</script>`);
+            await host.ready();
+
+            donor.pushComputed('foo', host);
+
+            expect(donor.toString()).to.equal(`<script>
+export default {};
+</script>`);
+            expect(host.toString()).to.equal(`<script>
+export default {
+    computed: {
+        foo() { return 42; }
+    }
+};
+</script>`);
         });
         
-        it('pushes watchers', () => {
-            
+        it('pushes watchers', async () => {
+            const donor = new VueParser(`<script>
+export default {
+    watch: {
+        foo(newVal, oldVal) {
+            console.log(newVal);
+        }
+    }
+};
+</script>`);
+            await donor.ready();
+
+            const host = new VueParser(`<script>
+export default {}
+</script>`);
+            await host.ready();
+
+            donor.pushWatcher('foo', host);
+
+            expect(donor.toString()).to.equal(`<script>
+export default {};
+</script>`);
+            expect(host.toString()).to.equal(`<script>
+export default {
+    watch: {
+        foo(newVal, oldVal) {
+            console.log(newVal);
+        }
+    }
+};
+</script>`);
         });
         
         it('pushes methods', async () => {
+            const donor = new VueParser(`<script>
+export default {
+    methods: {
+        foo() {}
+    }
+}
+</script>`);
+            await donor.ready();
 
+            const host = new VueParser(`<script>
+export default {}
+</script>`);
+            await host.ready();
+
+            donor.pushMethod('foo', host);
+
+            expect(donor.toString()).to.equal(`<script>
+export default {};
+</script>`);
+            expect(host.toString()).to.equal(`<script>
+export default {
+    methods: {
+        foo() {}
+    }
+};
+</script>`);
         });
-
     });
 });
