@@ -732,28 +732,59 @@ export default {}
 </template>`);
         });
 
-        it('renames a slot', async () => {
+        it('pushes HTML into a new slot', async () => {
+            const cmp = new VueParser(`<script>
+export default {}
+</script>
 
-        });
+<template>
+<MyDiv>
+    <span>I'll stay here</span>
+    <p>And I'll go into a new slot</p>
+</MyDiv>
+</template>`);
+            await cmp.ready();
 
-        it('adds a slot', async () => {
+            const hostCmp = new VueParser(`<script>
+export default {}
+</script>
 
-        });
+<template>
+<div>
+    <slot></slot>
+</div>
+</template>`);
+            await hostCmp.ready();
 
-        it('pushes HTML from one slot to another', async () => {
+            const node = cmp.filterHAST({ tag: 'p' })[0];
+            cmp.pushIntoNewSlot(node, 'my-slot', hostCmp);
+
+            expect(cmp.toString()).to.equal(`<script>
+export default {}
+</script>
+
+<template>
+<MyDiv>
+    <span>I'll stay here</span>
+    <p slot="my-slot">And I'll go into a new slot</p>
+</MyDiv>
+</template>`);
+
+            expect(hostCmp.toString()).to.equal(`<script>
+export default {}
+</script>
+
+<template>
+<div>
+    <slot></slot>
+    <slot name="my-slot"></slot>
+</div>
+</template>`);
             
         });
 
-        it('pushes HTML into a new slot', async () => {
-
-        });
-
-        it('removes a slot', async () => {
-
-        });
-
         it('merges two slots', async () => {
-
+            // is this one necessary?
         });
 
         it('pushes components', async () => {

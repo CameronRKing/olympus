@@ -483,18 +483,39 @@ export default {}
         this.removeNode(htmlNode);
     }
 
-    findHostSlot(htmlNode, hostCmp) {
+    pushIntoNewSlot(htmlNode, slotName, hostCmp) {
+        const container = this.findContainingSlot(htmlNode);
+
+        // update slot attribute
+        if (!htmlNode.attrs) htmlNode.attrs = {};
+        htmlNode.attrs.slot = slotName;
+        
+        // if the node isn't in the default slot, then we need to move it outside of its current slot
+        if (!container.tag.match(/[A-Z]+/)) {
+            this.insertAfter(htmlNode, container);
+        }
+
+        const template = hostCmp.filterHAST({ tag: 'template' })[0];
+        const newSlot = { tag: 'slot', attrs: { name: slotName } }
+        this.append(newSlot, template.content[1]);
+    }
+
+    findContainingSlot(htmlNode) {
         let parent = htmlNode;
         while (!(parent.tag.match(/[A-Z]/) || (parent.attrs && parent.attrs.slot))) {
             parent = htmlNode.parent;
-        } 
+        }
+        return parent;
+    }
+
+    findHostSlot(htmlNode, hostCmp) {
+        const container = this.findContainingSlot(htmlNode);
 
         // assume node is in the default slot by default
         let filter = { tag: 'slot' };
-        if (parent.attrs && parent.attrs.slot) {
-            filter.attrs = { name: parent.attrs.slot };
+        if (container.attrs && container.attrs.slot) {
+            filter.attrs = { name: container.attrs.slot };
         }
-        console.log(filter);
         return hostCmp.filterHAST(filter)[0];
     }
 
@@ -549,5 +570,10 @@ export default {}
         const idx = targetNode.parent.content.indexOf(targetNode);
         const whitespace = this.findWhitespace(targetNode.parent);
         targetNode.parent.content.splice(idx + 1, 0, whitespace, insertedNode);
+    }
+
+    append(node, parent) {
+        const target = parent.content.filter(node => typeof node == 'object').slice(-1)[0];
+        this.insertAfter(node, target);
     }
 }
