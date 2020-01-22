@@ -452,21 +452,19 @@ export default {}
 
     pushAboveSlot(htmlNode, hostCmp) {
         const hostSlot = this.findHostSlot(htmlNode, hostCmp);
-        const copiedNode = { ...htmlNode };
-        hostCmp.insertBefore(copiedNode, hostSlot);
+        hostCmp.insertBefore(this.copyNode(htmlNode), hostSlot);
         this.removeNode(htmlNode);
     }
 
     pushBelowSlot(htmlNode, hostCmp) {
         const hostSlot = this.findHostSlot(htmlNode, hostCmp);
-        const copiedNode = { ...htmlNode };
-        hostCmp.insertAfter(copiedNode, hostSlot);
+        hostCmp.insertAfter(this.copyNode(htmlNode), hostSlot);
         this.removeNode(htmlNode);
     }
 
     pushAroundSlot(htmlNode, hostCmp) {
         const hostSlot = this.findHostSlot(htmlNode, hostCmp);
-        const copiedNode = { ...htmlNode };
+        const copiedNode = this.copyNode(htmlNode);
         copiedNode.content = [hostSlot];
         hostCmp.replaceNode(hostSlot, copiedNode);
         // remove the tag, but splice its contents into its parents'
@@ -476,16 +474,17 @@ export default {}
     }
 
     findHostSlot(htmlNode, hostCmp) {
-        let parent;
-        do {
+        let parent = htmlNode;
+        while (!(parent.tag.match(/[A-Z]/) || (parent.attrs && parent.attrs.slot))) {
             parent = htmlNode.parent;
-        } while (!(parent.tag.match(/[A-Z]/) || parent.tag == 'slot'));
+        } 
 
         // assume node is in the default slot by default
         let filter = { tag: 'slot' };
-        if (parent.tag === 'slot') {
-            filter.attrs = { name: parent.attrs.name };
+        if (parent.attrs && parent.attrs.slot) {
+            filter.attrs = { name: parent.attrs.slot };
         }
+        console.log(filter);
         return hostCmp.filterHAST(filter)[0];
     }
 
@@ -498,6 +497,19 @@ export default {}
         // remove node && children from source
         node.tag = false;
         node.content = undefined;
+    }
+
+    copyNode(node) {
+        const copy = { ...node };
+        // since we don't want nodes competing for slots,
+        // or we may be moving this node out of its slot,
+        // it makes sense to remove any slot designation by default
+        // I can't think of a situation when I would copy a node AND want it to retain its slot
+        // if I want to keep the slot, I'd just move the node, not copy it
+        if (copy.attrs && copy.attrs.slot) {
+            copy.attrs.slot = undefined;
+        }
+        return copy;
     }
 
     replaceNode(targetNode, replacement) {

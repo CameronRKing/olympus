@@ -642,7 +642,7 @@ export default {}
 
 <template>
 <MyDiv>
-    <span class="ill-be-taken">I'll be left behind.</span>
+    <span slot="my-slot" class="ill-be-taken">I'll be left behind.</span>
 </MyDiv>
 </template>`);
             await cmp.ready();
@@ -653,6 +653,7 @@ export default {}
 <template>
 <div>
     <slot></slot>
+    <slot name="my-slot"></slot>
 </div>
 </template>`);
             await hostCmp.ready();
@@ -675,7 +676,10 @@ export default {}
 
 <template>
 <div>
-    <span class="ill-be-taken"><slot></slot></span>
+    <slot></slot>
+    <span
+        class="ill-be-taken"
+    ><slot name="my-slot"></slot></span>
 </div>
 </template>`);
         });
