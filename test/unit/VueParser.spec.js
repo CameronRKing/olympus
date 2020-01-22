@@ -684,6 +684,54 @@ export default {}
 </template>`);
         });
 
+        it('pushes HTML into a slot (as default content)', async () => {
+            const cmp = new VueParser(`<script>
+export default {}
+</script>
+
+<template>
+<MyDiv>
+    <span slot="my-slot">Default content</span>
+</MyDiv>
+</template>`);
+            await cmp.ready();
+            const hostCmp = new VueParser(`<script>
+export default {}
+</script>
+
+<template>
+<div>
+    <slot></slot>
+    <slot name="my-slot"></slot>
+</div>
+</template>`);
+            await hostCmp.ready();
+            const node = cmp.filterHAST({ tag: 'span' })[0];
+
+            cmp.pushIntoSlot(node, hostCmp);
+
+            expect(cmp.toString()).to.equal(`<script>
+export default {}
+</script>
+
+<template>
+<MyDiv>
+</MyDiv>
+</template>`);
+            expect(hostCmp.toString()).to.equal(`<script>
+export default {}
+</script>
+
+<template>
+<div>
+    <slot></slot>
+    <slot name="my-slot">
+        <span>Default content</span>
+    </slot>
+</div>
+</template>`);
+        });
+
         it('renames a slot', async () => {
 
         });

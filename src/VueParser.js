@@ -473,6 +473,16 @@ export default {}
         htmlNode.parent.content.splice(idx, 1, ...htmlNode.content);
     }
 
+    pushIntoSlot(htmlNode, hostCmp) {
+        const hostSlot = this.findHostSlot(htmlNode, hostCmp);
+        if (!hostSlot.content) hostSlot.content = [];
+        const whitespace = this.findWhitespace(hostSlot);
+        hostSlot.content = hostSlot.content.concat(
+            [whitespace + '    ', this.copyNode(htmlNode), whitespace]
+        );
+        this.removeNode(htmlNode);
+    }
+
     findHostSlot(htmlNode, hostCmp) {
         let parent = htmlNode;
         while (!(parent.tag.match(/[A-Z]/) || (parent.attrs && parent.attrs.slot))) {
