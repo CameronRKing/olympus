@@ -62,6 +62,51 @@ function rename(prompt, lookup, fn) {
     });
 }
 
+function refactorNode(fn) {
+    return actionSetup(async (editor, cmp) => {
+        const node = getTagNodeBeforeCursor(editor, cmp);
+        const [hostEditor, hostCmp] = await findComponentWrappingNode(node, cmp);
+        if (!hostCmp) return;
+    
+        if (typeof fn === 'string')
+            cmp[fn](node, hostCmp);
+        else
+            await fn(node, cmp, hostCmp);
+
+        replaceEditorContent(hostEditor, hostCmp.toString());
+        return cmp.toString();
+    });
+}
+
+async function findComponentWrappingNode(node, cmp) {
+    const { tag } = cmp.findParentComponent(node);
+    const path = await findFilePath(tag + '.vue');
+    if (path === undefined) {
+        vscode.window.showErrorMessage('Unable to find component with name ' + tag);
+        return [false, false];
+    }
+
+    let hostEditor = vscode.window.visibleTextEditors.find(editor => editor.document.uri.path == path);
+    if (!hostEditor) hostEditor = await vscode.window.showTextDocument(vscode.Uri.file(path), vscode.ViewColumn.Beside);
+    const hostCmp = new VueParser(hostEditor.document.getText());
+    await hostCmp.ready();
+    return [hostEditor, hostCmp];
+}
+
+function refactorAttr(lookup, fn) {
+    return actionSetup(async (editor, cmp) => {
+        const node = getTagNodeBeforeCursor(editor, cmp);
+        const [hostEditor, hostCmp] = await findComponentWrappingNode(node, cmp);
+        const choice = await getValidChoice(editor, cmp, lookup, 'Select ' + lookup + ' to move');
+        if (choice === undefined) return;
+
+        cmp[fn](choice, hostCmp);
+
+        replaceEditorContent(hostEditor, hostCmp.toString());
+        return cmp.toString();
+    });
+}
+
 function confirmWordUnderCursor(editor, prompt) {
     const value = wordUnderCursor(editor);
     return vscode.window.showInputBox({ value, prompt });
@@ -135,6 +180,7 @@ const actions = [
             filePath = await vscode.window.showInputBox({ prompt: 'Create new component?', value: `src/${cmpName}.vue` });
             if (filePath === undefined) return false;
 
+            // should probably replace with something in vscode.workspace
             await fs.writeFile(rootFolder() + '/' + filePath, `<script>
 export default {};
 </script>`);
@@ -236,6 +282,34 @@ export default {};
     ['am', 'add method', genericAdd('Type method name', 'addMethod')],
     ['nm', 'rename method', rename('method', 'methods', 'renameMethod')],
     ['rm', 'remove method', genericChoose('Select method to remove', 'removeMethod', 'methods')],
+    // refactoring
+    ['fc', 'refactor into component', actionSetup(async (editor, cmp) => {
+        const node = getTagNodeBeforeCursor(editor, cmp);
+        const cmpPath = await vscode.window.showInputBox({ prompt: 'Enter component path', value: 'src/NewComponent.vue' });
+        const newCmp = await cmp.refactorIntoComponent(node, cmpPath);
+
+        const newDocUri = vscode.Uri.parse('untitled:' + rootFolder() + '/' + cmpPath);
+        const doc = await vscode.workspace.openTextDocument(newDocUri);
+        const newEditor = await vscode.window.showTextDocument(doc, vscode.ViewColumn.Beside);
+        replaceEditorContent(newEditor, newCmp.toString());
+
+        return cmp.toString();
+    })],
+    ['pas', 'push node above slot', refactorNode('pushAboveSlot')],
+    ['pbs', 'push node below slot', refactorNode('pushBelowSlot')],
+    ['prs', 'push node around slot', refactorNode('pushAroundSlot')],
+    ['pis', 'push node into slot', refactorNode('pushIntoSlot')],
+    ['pns', 'push node into new slot', refactorNode(async (node, donorCmp, hostCmp) => {
+        const slotName = await vscode.window.showInputBox({ prompt: 'Type slot name' });
+        if (slotName === undefined) return;
+        donorCmp.pushIntoNewSlot(node, slotName, hostCmp);
+    })],
+    ['pic', 'push imported component', refactorAttr('components', 'pushComponent')],
+    ['pd', 'push data', refactorAttr('data', 'pushData')],
+    ['pc', 'push computed', refactorAttr('computed', 'pushComputed')],
+    ['pw', 'push watcher', refactorAttr('watchers', 'pushWatcher')],
+    ['pm', 'push method', refactorAttr('methods', 'pushMethod')],
+    // tailwind
     ['et', 'edit tailwind classes', actionSetup(async (editor, cmp) => {
         const nodeToEdit = getTagNodeBeforeCursor(editor, cmp);
         tailwindEdit(editor, cmp, nodeToEdit);
@@ -292,7 +366,7 @@ export default {};
         cmp.filterHAST({ attrs: { 'data-olympus': /.*/ } })
             .forEach(node => node.attrs['data-olympus'] = undefined);
         return cmp.toString();
-    })]
+    })],
 ];
 
 function tailwindEdit(editor, cmp, node) {

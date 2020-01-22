@@ -507,11 +507,19 @@ export default {}
     }
 
     findContainingSlot(htmlNode) {
-        let parent = htmlNode;
-        while (!(parent.tag.match(/[A-Z]/) || (parent.attrs && parent.attrs.slot))) {
-            parent = htmlNode.parent;
+        let node = htmlNode;
+        while (node && !(node.tag.match(/[A-Z]/) || (node.attrs && node.attrs.slot))) {
+            node = node.parent;
         }
-        return parent;
+        return node;
+    }
+
+    findParentComponent(htmlNode) {
+        let node = htmlNode;
+        while (node && !node.tag.match(/[A-Z]/)) {
+            node = node.parent;
+        }
+        return node;
     }
 
     findHostSlot(htmlNode, hostCmp) {
