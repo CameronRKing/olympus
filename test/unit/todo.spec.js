@@ -1,3 +1,6 @@
+// actions.js
+    // when a function is added, drop the cursor inside the definition and scroll to it
+        // and leave a bookmark behind?
 // router parser
     // bootstrap
     // add route

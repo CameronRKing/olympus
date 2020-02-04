@@ -180,10 +180,15 @@ const actions = [
             filePath = await vscode.window.showInputBox({ prompt: 'Create new component?', value: `src/${cmpName}.vue` });
             if (filePath === undefined) return false;
 
-            // should probably replace with something in vscode.workspace
+            // should probably replace with something in vscode.workspace,
+            // especially since this line will fail if not all the folders exist
             await fs.writeFile(rootFolder() + '/' + filePath, `<script>
 export default {};
 </script>`);
+        } else {
+            // if filePath exists, we need to trim it relative to the project directory
+            const projectFolder = rootFolder().split('\\').slice(-1)[0];
+            filePath = filePath.split(projectFolder + '/').slice(-1)[0];
         }
         cmp.importComponent(filePath);
         return cmp.toString();

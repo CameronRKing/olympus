@@ -2,7 +2,7 @@ const j = require('jscodeshift');
 const posthtml = require('posthtml');
 const { render } = require('./htmlrender');
 const { findObjProp, toSource, getDefaultExport, objProp, addToTop, parse, object } = require('./node-utils');
-const { mapWithKeys, pairs } = require('./utils');
+const { mapWithKeys, pairs, remove } = require('./utils');
 const renameThisAttr = require('./RenameThisAttr');
 const renameAttrInHtml = require('./RenameAttrInHtml');
 
@@ -106,6 +106,30 @@ module.exports = class VueParser {
             default:
                 return objProp(name, object());
         }
+    }
+
+    sortOptions() {
+        // ignoring hooks for now
+        // I don't feel like looking them up in this moment and I rarely use them, other than mounted
+        const nonHookOptions = [
+            'mixins',
+            'components',
+            'props',
+            'data',
+            'computed',
+            'watch',
+            'mounted',
+            'methods'
+        ];
+
+        let currSlot = 0;
+        const defaultExport = getDefaultExport(this.script).get().value;
+        nonHookOptions.forEach(option => {
+            const prop = defaultExport.properties.find(prop => prop.key.name == option);
+            if (!prop) return;
+            remove(defaultExport.properties, prop);
+            defaultExport.properties.splice(currSlot++, 0, prop);
+        });
     }
 
     /**
@@ -449,6 +473,7 @@ export default {}
     }
 
     toString() {
+        this.sortOptions();
         this.tree.match({ tag: 'script' }, node => {
             node.content = [toSource(this.script)];
             return node;

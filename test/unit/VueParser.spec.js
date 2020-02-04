@@ -14,6 +14,33 @@ export default {}
         asts = await getCmp();
     });
 
+    it('sorts options in an opinionated way', async () => {
+        const cmp = new VueParser(`<script>
+export default {
+    methods: {},
+    computed: {},
+    watch: {},
+    props: [],
+    data() {},
+    components: {},
+    mixins: []
+};
+</script>`);
+        await cmp.ready();
+
+        expect(cmp.toString()).to.equal(`<script>
+export default {
+    mixins: [],
+    components: {},
+    props: [],
+    data() {},
+    computed: {},
+    watch: {},
+    methods: {}
+};
+</script>`)
+    });
+
     describe('components', () => {
         it('imports', () => {
             asts.importComponent('src/components/FooCmp.vue');
