@@ -1,16 +1,19 @@
 const vscode = require('vscode');
 const VueAstEditor = require('vue-ast-editor');
+const {
+    shortcutToClass, classToShortcut, allClasses,
+    getClassPatch, classToFamily,
+    nextSibling, prevSibling,
+    generateComponentClasses
+} = require('tailwind-zephyr');
+const j = require('jscodeshift');
+const fs = require('fs').promises;
 const { pairs, assocIn, mapWithKeys, remove, prev, next } = require('./utils');
 const {
     wordUnderCursor, replaceEditorContent,
     findFilePath, quickSelect, rootFolder,
     selectionFromNode
 } = require('./vsutils');
-const { shortcutToClass, classToShortcut, allClasses,
-    getTailwindClassPatch, classToFamily, familyToClasses,
-    generateComponentClasses } = require('./TailwindEditor');
-const j = require('jscodeshift');
-const fs = require('fs').promises;
 
 async function getCmp(editor) {
     const text = editor.document.getText();
@@ -418,7 +421,7 @@ function tailwindEdit(editor, cmp, node) {
     picker.show();
 
     const patchClasses = (variants, cclass) => {
-        const patch = getTailwindClassPatch(classList, cclass, variants);
+        const patch = getClassPatch(classList, cclass, variants);
         if (patch.remove) remove(classList, patch.remove);
         if (patch.add) classList.push(patch.add);
         return patch;
@@ -468,16 +471,15 @@ function parseTailwindValue(value) {
 }
 
 // really, this should be split into two functions in TailwindEditor,
-// nextFamilyMember and prevFamilyMember,
+// nextSibling and prevSibling,
 // and the j/k logic should be kept in tailwindEdit()
 function navigateToNextTailwindClass(shortcut, suffix) {
-    const currClass = shortcutToClass[shortcut] || shortcut;
-    const siblings = (cclass) => familyToClasses[classToFamily[cclass]];
+    const cclass = shortcutToClass[shortcut] || shortcut;
     
     // there's a chance of this logic going awry, but I think the chances are low enough to risk it
     // (consider would would happen if we had shortcuts df and dfjr)
-    if (suffix == 'j') return prev(siblings(currClass), currClass);
-    if (suffix == 'k') return next(siblings(currClass), currClass);
+    if (suffix == 'j') return prevSibling(cclass);
+    if (suffix == 'k') return nextSibling(cclass);
     throw new Exception('Suffix ' + suffix + ' not recognized! Valid values are "j" and "k".');
 }
 
