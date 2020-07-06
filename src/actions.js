@@ -1,5 +1,5 @@
 const vscode = require('vscode');
-const VueParser = require('./VueParser');
+const VueAstEditor = require('vue-ast-editor');
 const { pairs, assocIn, mapWithKeys, remove, prev, next } = require('./utils');
 const {
     wordUnderCursor, replaceEditorContent,
@@ -14,8 +14,8 @@ const fs = require('fs').promises;
 
 async function getCmp(editor) {
     const text = editor.document.getText();
-    const cmp = new VueParser(text);
-    await cmp.isDone;
+    const cmp = new VueAstEditor(text);
+    await cmp.ready();
     return cmp;
 }
 
@@ -88,7 +88,7 @@ async function findComponentWrappingNode(node, cmp) {
 
     let hostEditor = vscode.window.visibleTextEditors.find(editor => editor.document.uri.path == path);
     if (!hostEditor) hostEditor = await vscode.window.showTextDocument(vscode.Uri.file(path), vscode.ViewColumn.Beside);
-    const hostCmp = new VueParser(hostEditor.document.getText());
+    const hostCmp = new VueAstEditor(hostEditor.document.getText());
     await hostCmp.ready();
     return [hostEditor, hostCmp];
 }
@@ -113,11 +113,11 @@ function confirmWordUnderCursor(editor, prompt) {
 }
 
 /**
- * Checks if word under cursor is a key in the object returned by calling `fn` on a VueParser (e.g., cmp[fn]())
+ * Checks if word under cursor is a key in the object returned by calling `fn` on a VueAstEditor (e.g., cmp[fn]())
  * If so, returns it.
  * If not, prompts user to select a valid choice.
  * @param {*} editor 
- * @param {VueParser} cmp 
+ * @param {VueAstEditor} cmp 
  * @param {String} dataSrc 
  * @param {String} placeholder 
  */
@@ -152,7 +152,7 @@ function calcPatch(existing, selected, { removed, added }) {
 /**
  * Finds the closest HTML AST node that starts before the user's cursor
  * @param {*} editor 
- * @param {VueParser} cmp 
+ * @param {VueAstEditor} cmp 
  */
 function getTagNodeBeforeCursor(editor, cmp) {
     // ideally I'd match the user's cursor position directly to a node in the AST via source code location info
@@ -461,11 +461,15 @@ function setupTailwindQuickPick() {
  */
 function parseTailwindValue(value) {
     const suffix = value[value.length - 1];
+    // I feel like distinguishing between variants and substance belongs in TailwindEditor
     const shortcut = value.slice(0, -1).split(':').slice(-1)[0];
     const variants = value.split(':').slice(0, -1).join(':');
     return [variants, shortcut, suffix];
 }
 
+// really, this should be split into two functions in TailwindEditor,
+// nextFamilyMember and prevFamilyMember,
+// and the j/k logic should be kept in tailwindEdit()
 function navigateToNextTailwindClass(shortcut, suffix) {
     const currClass = shortcutToClass[shortcut] || shortcut;
     const siblings = (cclass) => familyToClasses[classToFamily[cclass]];
@@ -478,8 +482,3 @@ function navigateToNextTailwindClass(shortcut, suffix) {
 }
 
 exports.actions = actions;
-
-function getActionFn(actionName) {
-    return actions.find(([_, name]) => name == actionName)[2];
-}
-exports.getActionFn = getActionFn;

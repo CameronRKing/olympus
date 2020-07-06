@@ -10,14 +10,14 @@
 		"Other"
 	],
 	"activationEvents": [
-		"onLanguage:vue"
+		"*"
 	],
 	"main": "./extension.js",
 	"contributes": {
 		"commands": [
 			{
 				"command": "olympus.openMenu",
-				"title": "Open Component Menu"
+				"title": "Open next Olympus menu"
 			}
 		],
 		"keybindings": [
@@ -46,6 +46,7 @@
 	"dependencies": {
 		"jscodeshift": "^0.6.4",
 		"posthtml": "^0.12.0",
-		"socket.io": "^2.3.0"
+		"socket.io": "^2.3.0",
+		"vue-ast-editor": "file:../devtools/vue-ast-editor"
 	}
 }
