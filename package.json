@@ -48,6 +48,7 @@
 		"posthtml": "^0.12.0",
 		"socket.io": "^2.3.0",
 		"tailwind-zephyr": "file:../devtools/tailwind-zephyr",
-		"vue-ast-editor": "file:../devtools/vue-ast-editor"
+		"vue-ast-editor": "file:../devtools/vue-ast-editor",
+		"vue-parser": "^1.1.6"
 	}
 }

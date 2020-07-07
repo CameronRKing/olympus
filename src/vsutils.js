@@ -1,4 +1,5 @@
 const vscode = require('vscode');
+const vueParser = require('vue-parser');
 const { remove } = require('./utils');
 
 function replaceEditorContent(editor, newContents) {
@@ -11,11 +12,17 @@ function replaceEditorContent(editor, newContents) {
 }
 exports.replaceEditorContent = replaceEditorContent;
 
-function selectionFromNode(node) {
+function selectionFromNode(node, editor) {
+    // the node location is relative to the start of the script
+    // to get the actual source code location, we need to know where the script starts
+    // ideally this information would be encoded in the AST, but the parser I'm using doesn't capture it
+    // so I'm using a second parser wrapped in convenience methods just for this purpose
+    const scriptNode = vueParser.getNode(editor.document.getText(), 'script');
+    const extraLines = editor.document.positionAt(scriptNode.__location.startTag.endOffset).line;
     const { start, end } = node.loc;
     return new vscode.Selection(
-        new vscode.Position(start.line - 1, start.column),
-        new vscode.Position(end.line - 1, end.column)
+        new vscode.Position(extraLines + start.line - 1, start.column),
+        new vscode.Position(extraLines + end.line - 1, end.column)
     );
 }
 exports.selectionFromNode = selectionFromNode;

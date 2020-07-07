@@ -236,7 +236,7 @@ export default {};
             .find(j.Property, { key: { name: toUpdate } })
             .find(j.Property, { key: { name: toAdd[0] } })
             .get().value.value;
-        editor.selection = selectionFromNode(propOption);
+        editor.selection = selectionFromNode(propOption, editor);
         return false;
     })],
     ['rp', 'remove prop', genericChoose('Select prop to remove', 'removeProp', 'props')],
@@ -247,14 +247,14 @@ export default {};
         // have to re-parse the component to find the location of the new AST node
         cmp = await getCmp(editor);
         const dataValue = cmp.option('data').find(j.Property, { key: { name } }).get().value.value;
-        editor.selection = selectionFromNode(dataValue);
+        editor.selection = selectionFromNode(dataValue, editor);
         return false;
     })],
     ['nd', 'rename data', rename('data', 'data', 'renameData')],
     ['ud', 'update data', actionSetup(async (editor, cmp) => {
         const toUpdate = await getValidChoice(editor, cmp, 'data', 'Select data to update');
         const dataValueNode = cmp.data()[toUpdate];
-        editor.selection = selectionFromNode(dataValueNode);
+        editor.selection = selectionFromNode(dataValueNode, editor);
         return false;
     })],
     ['rd', 'remove data', genericChoose('Select data to remove', 'removeData', 'data')],
