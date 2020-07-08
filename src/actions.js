@@ -336,14 +336,24 @@ export default {};
     ['ss', 'client socket snippet for live class editing', () => {
         vscode.env.clipboard.writeText(`
 (function() {
-    const socket = io.connect('http://localhost:4242');
-    socket.on('edit-class', ({ id, patch }) => { 
-        document.querySelectorAll(\`[data-olympus="\${id}"]\`)
-            .forEach(el => {
-                if (patch.remove) el.classList.remove(patch.remove);
-                if (patch.add) el.classList.add(patch.add);
-            });
-    });
+    function setupSocket() {
+        const socket = io.connect('http://localhost:4242');
+        socket.on('edit-class', ({ id, patch }) => { 
+            document.querySelectorAll(\`[data-olympus="\${id}"]\`)
+                .forEach(el => {
+                    if (patch.remove) el.classList.remove(patch.remove);
+                    if (patch.add) el.classList.add(patch.add);
+                });
+        });
+    }
+    if (window.io) {
+        setupSocket();
+    } else {
+        const script = document.createElement('script');
+        script.src = 'http://localhost:4242/socket.io/socket.io.js';
+        script.onload = setupSocket;
+        document.head.appendChild(script);
+    }
 })();`);
         vscode.window.showInformationMessage('Snippet copied to clipboard!');
     }],
@@ -478,8 +488,8 @@ function navigateToNextTailwindClass(shortcut, suffix) {
     
     // there's a chance of this logic going awry, but I think the chances are low enough to risk it
     // (consider would would happen if we had shortcuts df and dfjr)
-    if (suffix == 'j') return prevSibling(cclass);
-    if (suffix == 'k') return nextSibling(cclass);
+    if (suffix == 'j') return nextSibling(cclass);
+    if (suffix == 'k') return prevSibling(cclass);
     throw new Exception('Suffix ' + suffix + ' not recognized! Valid values are "j" and "k".');
 }
 
