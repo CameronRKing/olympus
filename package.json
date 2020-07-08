@@ -1,8 +1,14 @@
 {
 	"name": "olympus",
 	"displayName": "olympus",
-	"description": "",
-	"version": "0.0.1",
+	"publisher": "CameronKing",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/CameronRKing/olympus.git"
+	},
+	"description": "Rapid AST manipulation of Vue components + immediate TailwindCSS interactions.",
+	"version": "0.1.0",
 	"engines": {
 		"vscode": "^1.40.0"
 	},
@@ -44,11 +50,16 @@
 		"vscode-test": "^1.2.2"
 	},
 	"dependencies": {
-		"jscodeshift": "^0.6.4",
-		"posthtml": "^0.12.0",
+		"@babel/preset-env": "^7.1.6",
+		"ast-types": "^0.13.3",
+		"bufferutil": "^4.0.1",
+		"jscodeshift": "^0.10.0",
+		"kind-of": "^6.0.3",
+		"posthtml": "^0.13.1",
 		"socket.io": "^2.3.0",
-		"tailwind-zephyr": "file:../devtools/tailwind-zephyr",
-		"vue-ast-editor": "file:../devtools/vue-ast-editor",
+		"tailwind-zephyr": "^0.1.0",
+		"utf-8-validate": "^5.0.2",
+		"vue-ast-editor": "^0.1.1",
 		"vue-parser": "^1.1.6"
 	}
 }
