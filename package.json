@@ -56,7 +56,7 @@
 		"jscodeshift": "^0.10.0",
 		"kind-of": "^6.0.3",
 		"posthtml": "^0.13.1",
-		"socket.io": "^2.3.0",
+		"socket.io": "^2.4.0",
 		"tailwind-zephyr": "^0.1.0",
 		"utf-8-validate": "^5.0.2",
 		"vue-ast-editor": "^0.1.1",
